@@ -22,6 +22,6 @@ You can obtain binaries and sources for the latest release, **IMSEQ 1.0**, by ch
     $ imseq -ref segment-reference.fa -o output-file.tsv input-file.fastq.gz
 
 <p></p>
- * _segment-reference.fa_<br/>A file containing the ***V and J segment sequences*** for the gene and species that is analyzed. The file must be in FASTA format and the sequence IDs must follow the [IMSEQ FASTA ID Specification](/fastaFormat). Gene segment reference files for the human T-cell receptor alpha and beta chain genes are provided with **IMSEQ**.
+ * _segment-reference.fa_<br/>A file containing the ***V and J segment sequences*** for the gene and species that is analyzed. The file must be in FASTA format and the sequence IDs must follow the [IMSEQ FASTA ID Specification]({{ site.baseurl }}/fastaFormat). Gene segment reference files for the human T-cell receptor alpha and beta chain genes are provided with **IMSEQ**.
  * _input-file.fastq.gz_<br/>One (single-end sequencing) or two (split paired-end sequencing) FASTA or FASTQ files with the input reads. If two files are specified, the first file is considered to be V-read and the second file the V(D)J-read, if only one file is specified it has to contain V(D)J-reads. V-reads are parsed as forward sequence, V(D)J-reads are parsed as reverse complementary sequence. This behavior can be inversed using the ```-r``` switch.
- * _output-file.tsv_<br/>An output file where the detailed per-read analysis results are written in TSV format. See [IMSEQ Output file specifications](/outputFiles) for more details.
+ * _output-file.tsv_<br/>An output file where the detailed per-read analysis results are written in TSV format. See [IMSEQ Output file specifications]({{ site.baseurl }}/outputFiles) for more details.
