@@ -67,6 +67,8 @@
 <em>segment-reference.fa</em><br>A file containing the <strong><em>V and J segment sequences</em></strong> for the gene and species that is analyzed. The file must be in FASTA format and the sequence IDs must follow the <a href="">IMSEQ FASTA ID Specification</a>. Gene segment reference files for the human T-cell receptor alpha and beta chain genes are provided with <strong>IMSEQ</strong>.</li>
 <li>
 <em>input-file.fastq.gz</em><br>One (single-end sequencing) or two (split paired-end sequencing) FASTA or FASTQ files with the input reads. If two files are specified, the first file is considered to be V-read and the second file the V(D)J-read, if only one file is specified it has to contain V(D)J-reads. V-reads are parsed as forward sequence, V(D)J-reads are parsed as reverse complementary sequence. This behavior can be inversed using the <code>-r</code> switch.</li>
+<li>
+<em>output-file.tsv</em><br>An output file where the detailed per-read analysis results are written in TSV format. See <a href="">IMSEQ Output file specifications</a> for more details.</li>
 </ul>
       </section>
     </div>
