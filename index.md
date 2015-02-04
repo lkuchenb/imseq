@@ -12,7 +12,7 @@ You can obtain binaries and sources for the latest release, **IMSEQ 1.0**, by ch
 
  * [**IMSEQ 1.0 for Linux (64 bit)**](./binaries/imseq-1.0-linux64.tgz)<br/>Statically linked binary supporting most 64 bit Linux systems
  * [**IMSEQ 1.0 for OS X (64 bit)**](./binaries/imseq-1.0-mac64.tgz)<br/>Requires OS X 10.9 or newer
- * [**IMSEQ 1.0 Sourcecode**](./binaries/imseq-1.0-source.tgz)<br/>A source tarball of IMSEQ 1.0. For the sources and build instructions of the current development version check out the [GitHub repository](https://github.com/lkuchenb/imseq).
+ * [**IMSEQ 1.0 Sourcecode**](./binaries/seqan_imseq-1.0-source.tgz)<br/>A source tarball of IMSEQ 1.0. For the sources and build instructions of the current development version check out the [GitHub repository](https://github.com/lkuchenb/imseq).
  
 ## Using IMSEQ
 
