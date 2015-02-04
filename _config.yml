@@ -9,3 +9,8 @@ url: "http://www.imtools.org" # the base hostname & protocol for your site
 
 # Build settings
 markdown: kramdown
+kramdown:
+    input: GFM
+    toc_levels: "2,3,4"
+highlighter: pygments
+github: [Repository metadata]

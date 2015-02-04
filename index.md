@@ -1,6 +1,5 @@
 ---
 layout: default
-date:   2015-02-04 15:53:59
 ---
 
 IMSEQ is a **fast, PCR and sequencing error aware** tool to analyze high throughput data from recombined **T-cell receptor** or **immunoglobolin** gene **sequencing** experiments. It derives immune **repertoires** from sequencing data in FASTA / FASTQ format.
@@ -24,4 +23,8 @@ You can obtain binaries and sources for the latest release, **IMSEQ 1.0**, by ch
 <p></p>
  * _segment-reference.fa_<br/>A file containing the ***V and J segment sequences*** for the gene and species that is analyzed. The file must be in FASTA format and the sequence IDs must follow the [IMSEQ FASTA ID Specification](./fastaFormat). Gene segment reference files for the human T-cell receptor alpha and beta chain genes are provided with **IMSEQ**.
  * _input-file.fastq.gz_<br/>One (single-end sequencing) or two (split paired-end sequencing) FASTA or FASTQ files with the input reads. If two files are specified, the first file is considered to be V-read and the second file the V(D)J-read, if only one file is specified it has to contain V(D)J-reads. V-reads are parsed as forward sequence, V(D)J-reads are parsed as reverse complementary sequence. This behavior can be inversed using the ```-r``` switch.
- * _output-file.tsv_<br/>An output file where the detailed per-read analysis results are written in TSV format. See [IMSEQ Output file specifications](./outputFiles) for more details.
+ * _output-file.tsv_<br/>An output file where the detailed per-read analysis results are written in TSV format. See the [output file specifications](./manual#output-files) for more details.
+
+## Further Reading
+
+**IMSEQ** supports many more options that can adjust its behaviour to many experimental conditions. All options are documented in the [Manual](./manual). Furthermore, the [Tutorial](./tutorial) will guide you through some basic analysis of the example files that come with **IMSEQ**.
