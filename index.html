@@ -54,6 +54,18 @@
 
 <h4>
 <a id="using-imseq" class="anchor" href="#using-imseq" aria-hidden="true"><span class="octicon octicon-link"></span></a>Using IMSEQ</h4>
+
+<p><strong>IMSEQ</strong> requires at least two input files and the specification of at least one output file. The two input files are specified using the switches</p>
+
+<pre><code>$ imseq -ref segment-reference.fa -o output-file.tsv input-file.fastq.gz
+</code></pre>
+
+<p></p>
+
+<ul>
+<li>
+<em>segment-reference.fa</em><br>A file containing the <strong><em>V and J segment sequences</em></strong> for the gene and species that is analyzed. The file must be in FASTA format and the sequence IDs must follow the <a href="">IMSEQ FASTA ID Specification</a>. Gene segment reference files for the human T-cell receptor alpha and beta chain genes are provided with <strong>IMSEQ</strong>.</li>
+</ul>
       </section>
     </div>
 
