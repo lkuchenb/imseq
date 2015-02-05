@@ -1,15 +1,10 @@
 ---
-layout: page
-title: About
+layout: page 
 permalink: /about/
+title: About
 ---
 
-This is the base Jekyll theme. You can find out more info about customizing your Jekyll theme, as well as basic Jekyll usage documentation at [jekyllrb.com](http://jekyllrb.com/)
+![Charite Logo](../images/ChariteUMB-Logo_png.png)
 
-You can find the source code for the Jekyll new theme at: [github.com/jglovier/jekyll-new](https://github.com/jglovier/jekyll-new)
-
-You can find the source code for Jekyll at [github.com/jekyll/jekyll](https://github.com/jekyll/jekyll)
-
-| Foo | Bar | Baz
-| --- | --- | ---
-| Bla | Bla | Bla
+<p style="margin-top:40px"></p>
+**IMSEQ** was developed at [Charité Unverstitätsmedizin Berlin](http://www.charite.de/). It is published under the [GPL v2 license](http://www.gnu.org/licenses/gpl-2.0.html). For questions regarding **IMSEQ**, please contact [Leon Kuchenbecker](mailto:lkuchenb@inf.fu-berlin.de).
