@@ -44,7 +44,18 @@ The segment sequences have to be provided in FASTA format as specified in the [I
 
 **IMSEQ** supports three output files to write the clonotyping and repertoire generation results:
 
- * ```-o, --out``` - _Detailed per read clonotyping information_<br/>This file contains one line for every read that was successfully analysed. 
+ * ```-o, --out``` - _Detailed per read clonotyping information_<br/>This file contains one line for every read that was successfully analysed, providing the following information for every input sequences that was successfully analyzed:
+   1. _seqId_<br/>The FASTA / FASTQ ID of the input sequence
+   1. _cdrBegin_<br/>The position of the first base of the Cys-triplet in the read, 0-based
+   1. _cdrEnd_<br/>The position of the last base of the Phe-triplet in the read, 0-based
+   1. _leftMatches_<br/>The identified V segment(s)
+   1. _leftErrPos_<br/>The read to segment alignment mismatch positions relative to the last base before the Cys-triplet
+   1. _leftMatchLen_<br/>The length of the V segment alignment until the last base of the segment core fragment
+   1. _rightMatches_<br/>The identified J segment(s)
+   1. _rightErrPos_<br/>The read to segment alignment mismatch positions relative to the first base after the Phe-triplet
+   1. _rightMatchLen_<br/>The length of the V segment alignment from the first base of the segment core fragment on
+   1. _cdrNucSeq_<br/>The nucleotide sequence of the CDR3 region
+   1. _cdrAASeq_<br/>The aminoacid sequence of the CDR3 region
  * ```-on, --out-nuc``` - _Nucleotide based clonotype counts_<br/>Counts of clonotypes, where a clonotype is defined by its V segment, J segment and the nucleotide sequence of the CDR3 region. The counts are generated after the correction of PCR and sequencing errors.
  * ```-oa, --out-amino``` - _Aminoacid based clonotype counts_<br/>Potentially corrected counts of clonotypes, where a clonotype is defined by its V segment, J segment and the aminoacid sequence of the CDR3 region. The counts are generated after the correction of PCR and sequencing errors.
 
