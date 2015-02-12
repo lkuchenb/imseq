@@ -8,7 +8,7 @@ IMSEQ is a **fast, PCR and sequencing error aware** tool to analyze high through
 
 ## Getting IMSEQ
 
-You can obtain binaries and sources for the latest release, **IMSEQ 1.0**, by choosing from one of the following links:
+**IMSEQ** is freely available and its source code is made available under the [GPLv2](http://www.gnu.org/licenses/gpl-2.0.html) license. You can obtain binaries and sources for the latest release, **IMSEQ 1.0**, by choosing from one of the following links:
 
  * [**IMSEQ 1.0 for Linux (64 bit)**](./binaries/imseq_1.0-linux64.tgz)<br/>Statically linked binary supporting most 64 bit Linux systems
  * [**IMSEQ 1.0 for OS X (64 bit)**](./binaries/imseq_1.0-mac64.tgz)<br/>Requires OS X 10.9 or newer
