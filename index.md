@@ -8,11 +8,15 @@ IMSEQ is a **fast, PCR and sequencing error aware** tool to analyze high through
 
 ## Getting IMSEQ
 
-**IMSEQ** is freely available and its source code is made available under the [GPLv2](http://www.gnu.org/licenses/gpl-2.0.html) license. You can obtain binaries and sources for the latest release, **IMSEQ 1.0**, by choosing from one of the following links:
+**IMSEQ** is freely available and its source code is made available under the [GPLv2](http://www.gnu.org/licenses/gpl-2.0.html) license. You can obtain binaries and sources for the latest release, **IMSEQ 1.0.1**, by choosing from one of the following links:
 
- * [**IMSEQ 1.0 for Linux (64 bit)**](./binaries/imseq_1.0-linux64.tgz)<br/>Statically linked binary supporting most 64 bit Linux systems
- * [**IMSEQ 1.0 for OS X (64 bit)**](./binaries/imseq_1.0-mac64.tgz)<br/>Requires OS X 10.9 or newer
- * [**IMSEQ 1.0 Sourcecode**](./binaries/seqan-imseq_1.0-source.tgz)<br/>A source tarball of IMSEQ 1.0. For the sources and build instructions of the current development version check out the [GitHub repository](https://github.com/lkuchenb/imseq).
+ * [**IMSEQ 1.0.1 for Linux (64 bit)**](https://github.com/lkuchenb/imseq/releases/download/v1.0.1/imseq_1.0.1-linux64.tgz)<br/>Statically linked binary supporting most 64 bit Linux systems
+ * [**IMSEQ 1.0.1 for OS X (64 bit)**](https://github.com/lkuchenb/imseq/releases/download/v1.0.1/imseq_1.0.1-mac64.tgz)<br/>Requires OS X 10.9 or newer
+ * [**IMSEQ 1.0.1 Sourcecode**](http://127.0.0.1:4000/binaries/seqan-imseq_1.0-source.tgz)<br/>A source tarball of IMSEQ 1.0.1. 
+
+Changes can be reviewed in the [**Changelog**](https://github.com/lkuchenb/imseq/releases/).
+
+For the sources and build instructions of the current **development version** check out the [GitHub repository](https://github.com/lkuchenb/imseq).
  
 ## Using IMSEQ
 
