@@ -1,0 +1,36 @@
+========================================================================
+IMSEQ 1.0
+(c) 2015 Charite Universitaetsmedizin Berlin
+Author: Leon Kuchenbecker <lkuchenb@inf.fu-berlin.de>
+========================================================================
+
+= 1 LICENSE ============================================================
+
+seqan_minimal/LICENSE   SeqAn license
+imseq/LICENSE           IMSEQ license
+
+= 2 INFORMATION ========================================================
+
+For information about IMSEQ, please visit www.imtools.org
+
+= 3 BUILD INSTRUCTIONS =================================================
+
+To build IMSEQ, you will need
+
+ * Cmake 2.8.2 or newer
+ * A C++ 11 compliant C++ compiler such as gcc 2.7
+ * zlib header files, otherwise your binary will not be able to read
+   gzip compressed FASTQ / FASTA files
+
+Invoke the following commands to build IMSEQ:
+
+$ cmake ./seqan_minimal/
+$ make
+
+If you do not want to use your systems default C++ compiler, you can specify
+the path to your C++ compiler as shown in this example:
+
+$ cmake -DCMAKE_CXX_COMPILER=/usr/bin/g++-4.8 ./seqan_minimal/
+$ make
+
+You will find your 'imseq' binary in the 'bin' folder.

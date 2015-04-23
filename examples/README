@@ -1,0 +1,33 @@
+IMSEQ EXAMPLES
+==============
+
+File Description
+----------------
+
+The examples directory contains two example input files:
+ [1] example_input_sim.fa
+     50 simulated human TRB reads, annotated with the respective clonotype information
+ [2] quality_bias_sample.fq.gz
+     10,000 real world reads, a sample from the data used to generate the Figure X in Y showing the
+     clonotype bias in low quality reads.
+
+Example IMSEQ invocations
+-------------------------
+
+# Generate a detailed analysis file for the sequences contained in 'example_input_sim.fa' and write
+# it to 'example_input_sim.tsv'. The output file contains per read clonotype information.
+
+imseq -r -ref ../Homo.Sapiens.TRB.fa -o output.tsv example_input_sim.fa
+
+# Generate aminoacid clonotype counts for the sequences contained in 'quality_bias_sample.fq.gz' and
+# write them to 'MQ10QC' and 'MQ30', once using a quality threshold of 10 with quality clustering
+# and of 30 without quality clustering. The reads are reverse complementary (-r) and we want to use
+# 8 threads (-j 8).
+
+imseq -ref ../Homo.Sapiens.TRB.fa -j 8 -mq 10 -qc -oa MQ10QC quality_bias_sample.fq.gz
+imseq -ref ../Homo.Sapiens.TRB.fa -j 8 -mq 30 -oa MQ30 quality_bias_sample.fq.gz
+
+# Generate a bar plot for the top 10 clonotypes of MQ10QC and compare them to MQ30. Store the output
+# in 'MQ.pdf'.
+
+./top10PlotPDF.R MQ10QC MQ30 MQ.pdf
