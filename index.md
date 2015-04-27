@@ -12,7 +12,7 @@ IMSEQ is a **fast, PCR and sequencing error aware** tool to analyze high through
 
  * [**IMSEQ 1.0.1 for Linux (64 bit)**](https://github.com/lkuchenb/imseq/releases/download/v1.0.1/imseq_1.0.1-linux64.tgz)<br/>Statically linked binary supporting most 64 bit Linux systems
  * [**IMSEQ 1.0.1 for OS X (64 bit)**](https://github.com/lkuchenb/imseq/releases/download/v1.0.1/imseq_1.0.1-mac64.tgz)<br/>Requires OS X 10.9 or newer
- * [**IMSEQ 1.0.1 Sourcecode**](http://127.0.0.1:4000/binaries/seqan-imseq_1.0-source.tgz)<br/>A source tarball of IMSEQ 1.0.1. 
+ * [**IMSEQ 1.0.1 Sourcecode**](https://github.com/lkuchenb/imseq/releases/download/v1.0.1/seqan-imseq_1.0.1-source.tgz)<br/>A source tarball of IMSEQ 1.0.1. 
 
 Changes can be reviewed in the [**Changelog**](https://github.com/lkuchenb/imseq/releases/).
 
