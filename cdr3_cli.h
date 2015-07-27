@@ -72,8 +72,8 @@ inline void initializeLog(Log & log, ArgumentParser& parser, std::string const &
 inline void parseCommandLine(CdrOptions & options, String<std::string> & inFilePaths, const int argc, const char** argv) {
 
     ArgumentParser parser("imseq"); 
-    setVersion(parser, "1.0.1");
-    setDate(parser, "April 2015");
+    setVersion(parser, "1.0.2");
+    setDate(parser, "July 2015");
 
     addUsageLine(parser, "-ref <segment reference> [\\fIOPTIONS\\fP] <VDJ reads>");
     addUsageLine(parser, "-ref <segment reference> [\\fIOPTIONS\\fP] <V reads> <VDJ reads>");
