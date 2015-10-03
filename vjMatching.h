@@ -732,22 +732,14 @@ void findBestVSegment(
 
         unsigned const segId = position(reCaIt);
         
-//        std::cout << "CHECKING SEGMENT " << segId << std::endl;
-
-        // Find best scoring segment (MYERS BITVECTOR)
-        // String<unsigned> bestDBs;
         for (std::set<unsigned>::const_iterator readIdIt = reCaIt->cbegin(); readIdIt != reCaIt->cend(); ++readIdIt)
-//        for (Iterator<String<unsigned>,Rooted>::Type readIdIt = begin(*reCaIt); !atEnd(readIdIt); goNext(readIdIt))
         {
 
             unsigned vReadId = *readIdIt;
 
-//            std::cout << "CHECKING COMBINATION READ " << vReadId << " WITH SEGMENT " << segId << std::endl;
-
             TSequence const & vReadSeq = vReadSeqs[vReadId];
             int maxErrors = std::ceil(maxErrRate * length(vReadSeq));
 
-//            TPatternState patternState;
             TMyersPattern myersPattern;
             setHost(myersPattern, vReadSeq);
 
@@ -756,7 +748,6 @@ void findBestVSegment(
 
             Finder<TSequence const> finder(segmentSequences[segId]);
             while (find(finder, myersPattern, -maxErrors)) {
-//                std::cout << "READ " << vReadId << " " << vReadSeq << " matches segment " << segId << " " << segmentSequences[segId] << std::endl;
                 if (!matchFound) {
                     segBestScore = getScore(myersPattern);
                     matchFound = true;
@@ -768,11 +759,8 @@ void findBestVSegment(
             }
 
             if (!matchFound) {
-//                std::cout << "READ " << vReadId << " " << vReadSeq << " DOES NOT MATCH segment " << segId << " " << segmentSequences[segId] << " [maxErrors=" << maxErrors << "]" << std::endl;
                 continue;
             } 
-//            else
-//                std::cout << "MATCH FOUND!" << std::endl;
 
             String<unsigned> & bestDBs = dbMatches[vReadId];
 
@@ -784,17 +772,7 @@ void findBestVSegment(
                 appendValue(bestDBs, segId);
             }
         }
-
     }
-
-//    for (unsigned i=0; i<length(dbMatches); ++i) {
-//        std::cout << "READ " << i << " MATCHES AGAINST: ";
-//        for (auto x : dbMatches[i])
-//            std::cout << x << " ";
-//        std::cout << std::endl;
-//    }
-//
-
 }
 
 template<typename TMatches, typename TGlobalData>
