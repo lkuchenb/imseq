@@ -834,24 +834,34 @@ void findBestSegmentMatch(
             assignSource(row(align, 1), segSegment);
 
             // TODO Check hard-coded parameters
-            int score = globalAlignment(align, SimpleScore(1, -2, -2), AlignConfig<false,true,false,true>(), -length(segSegment), 10);
+            int score           = globalAlignment(align, SimpleScore(1, -2, -2), AlignConfig<false,true,false,true>(), -length(segSegment), 10);
+
+            // Clip to non-CDR3 overlap region
+            int olBeginViewPos = toViewPosition(row(align, 0),0);
+            int olEndViewPos = 1 + toViewPosition(row(align, 1), length(source(row(align,1))) - 1 );
+            setClippedBeginPosition(row(align, 0), olBeginViewPos);
+            setClippedBeginPosition(row(align, 1), olBeginViewPos);
+            setClippedEndPosition(row(align, 0), olEndViewPos);
+            setClippedEndPosition(row(align, 1), olEndViewPos);
+
+            int overlapLength   = olEndViewPos - olBeginViewPos;
+            int mismatches      = ((overlapLength - score) / 3);
+            double errRate      = 1.0 * mismatches / overlapLength;
+            int unitScore       = overlapLength - 2 * mismatches;
 
             // We keep track of the maximum observed score since we can still
             // discard alignments based on the V-segment against VDJ-read
             // alignment to refine the results obtained from the V-read
             // alignments
-            if (score < maxScore)
+            if (unitScore < maxScore)
                 continue;
 
-            int overlapLength = 1 + toViewPosition(row(align, 1), length(source(row(align,1))) - 1 ) - toViewPosition(row(align, 0), 0);
-            double errRate = (overlapLength - score) / 2.0 / overlapLength;
-
             if (overlapLength >= global.options.pairedMinVOverlap && errRate <= global.options.pairedMaxErrRateVOverlap) {
-                if (score > maxScore) {
+                if (unitScore > maxScore) {
                     clear(readMatches);
                     maxScore = score;
                 }
-                appendValue(readMatches, TSegmentMatch(*refIt, score, align));
+                appendValue(readMatches, TSegmentMatch(*refIt, unitScore, align));
             }
         }
 
