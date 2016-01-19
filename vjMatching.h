@@ -674,10 +674,8 @@ void findBestVSegment(
     typedef Index<TSequenceSet, IndexQGram<TShape, OpenAddressing> >    TIndex;
     typedef Pattern<TIndex, Swift<SwiftSemiGlobal> >                    TPattern;
     typedef Finder<TSequence, Swift<SwiftSemiGlobal> >                  TFinder;
-    typedef std::map<unsigned, BeginEndPos<long long> >                 TReadPosMap;
 
     // Types required for verification
-    typedef PatternState_<TSequence, MyersUkkonenBanded>                TPatternState;
     typedef Pattern<TSequence, MyersUkkonen>                            TMyersPattern;
     
     // Abort if no sequences were passed
