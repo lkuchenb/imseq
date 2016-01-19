@@ -183,6 +183,20 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     setDefaultValue(parser, "mcq", OPT_QMIN_DEFAULT);
 
     //================================================================================
+    // BARCODING
+    //================================================================================
+
+    addSection(parser, "Barcoding");
+
+    // SWITCHES
+    addOption(parser, ArgParseOption("bvdj", "barcode-vdj", "In paired end mode: Read the barcode from the VDJ read instead of the V read."));
+    // PARAMETERS
+    addOption(parser, ArgParseOption("bcl", "barcode-length", "Length of random barcode at the beginning of the read. A value of '0' disables barcode based correction.", (ArgParseArgument::INTEGER)));
+    setMinValue(parser, "bcl", "0");
+    setDefaultValue(parser, "bcl", 0);
+
+
+    //================================================================================
     // POSTPROCESSING / CLUSTERING
     //================================================================================
 
@@ -307,6 +321,9 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     getOptionValue(options.vReadCrop, parser, "vcr");
     options.pairedMinVOverlap = 10;
     options.mergeIdenticalCDRs = isSet(parser, "ma");
+
+    getOptionValue(options.barcodeLength, parser, "bcl");
+    options.barcodeVDJRead = isSet(parser, "bvdj");
 
     // CLUSTERING
     getOptionValue(options.maxQClusterErrors, parser, "qcme");
