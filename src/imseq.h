@@ -2663,6 +2663,16 @@ void autoTuneVSCFLength(CdrOptions & options, unsigned minReadLength) {
     }
 }
 
+template <typename TSequencingSpec>
+int main_generic(InputInformation & inputInformation, CdrGlobalData<TSequencingSpec> & global, CdrOptions & options, CdrReferences & references) {
+    if (!getInputInformation(inputInformation, global.input))
+        return 1;
+    autoTuneVSCFLength(options, inputInformation.minReadLength);
+    readAndPreprocessReferences(references, global.options);
+    return runAnalysis(global, inputInformation);
+}
+
+
 #endif  // #ifndef SANDBOX_LKUCHENB_APPS_CDR3FINDER_CDR3FINDER_H_
 
 /* vim: set sw=4 sts=4 ts=8 spell spelllang=en expandtab: */

@@ -73,7 +73,7 @@ int main(int argc, char ** argv)
     // ============================================================================
     // Parse the command line options
     // ============================================================================
-    
+
     CdrOptions options;
     CdrReferences references;
     CdrOutputFiles outFiles;
@@ -98,39 +98,26 @@ int main(int argc, char ** argv)
 
     if (options.pairedEnd)
     {
-	CdrInputStreams<PairedEnd> is(inFilePaths[0], inFilePaths[1]);
-	CdrGlobalData<PairedEnd> global(
-		options, 
-		references, 
-		is, 
-		outFiles
-		);
-
-        if (!getInputInformation(inputInformation, global.input))
-            return 1;
-
-        autoTuneVSCFLength(options, inputInformation.minReadLength);
-
-        readAndPreprocessReferences(references, options);
-
-	return runAnalysis(global, inputInformation);
+        CdrInputStreams<PairedEnd> is(
+                inFilePaths[0],
+                inFilePaths[1]);
+        CdrGlobalData<PairedEnd> global(
+                options,
+                references,
+                is,
+                outFiles
+                );
+        return main_generic(inputInformation, global, options, references);
     } else {
-	CdrInputStreams<SingleEnd> is(inFilePaths[0]);
-	CdrGlobalData<SingleEnd> global(
-		options, 
-		references, 
-		is, 
-		outFiles
-		);
-
-        if (!getInputInformation(inputInformation, global.input))
-            return 1;
-
-        autoTuneVSCFLength(options, inputInformation.minReadLength);
-
-        readAndPreprocessReferences(references, options);
-
-	return runAnalysis(global, inputInformation);
+        CdrInputStreams<SingleEnd> is(
+                inFilePaths[0]);
+        CdrGlobalData<SingleEnd> global(
+                options,
+                references,
+                is,
+                outFiles
+                );
+        return main_generic(inputInformation, global, options, references);
     }
-    
+
 }
