@@ -134,22 +134,22 @@ struct CdrOutputFiles {
 };
 
 template<typename TSequencingType>
-struct CdrInputStreams {};
+struct SeqInputStreams {};
 
 template<>
-struct CdrInputStreams<SingleEnd> {
+struct SeqInputStreams<SingleEnd> {
     std::string path;
     SeqFileIn stream;
-    CdrInputStreams<SingleEnd>(std::string path_) : path(path_) {
+    SeqInputStreams<SingleEnd>(std::string path_) : path(path_) {
         open(stream, path.c_str());
     }
 };
 
 template<>
-struct CdrInputStreams<PairedEnd> {
+struct SeqInputStreams<PairedEnd> {
     std::string fwPath, revPath;
     SeqFileIn fwStream, revStream;
-    CdrInputStreams<PairedEnd>(std::string fwPath_, std::string revPath_) : fwPath(fwPath_), revPath(revPath_) {
+    SeqInputStreams<PairedEnd>(std::string fwPath_, std::string revPath_) : fwPath(fwPath_), revPath(revPath_) {
         open(fwStream,fwPath.c_str());
         open(revStream,revPath.c_str());
     }
@@ -159,10 +159,10 @@ template<typename TSequencingType>
 struct CdrGlobalData {
     CdrOptions const &                  options;
     CdrReferences const &               references;
-    CdrInputStreams<TSequencingType> &  input;
+    SeqInputStreams<TSequencingType> &  input;
     CdrOutputFiles &                    outFiles;
 
-    CdrGlobalData(CdrOptions const & _options, CdrReferences const & _references, CdrInputStreams<TSequencingType> & _input, CdrOutputFiles & _outFiles) : 
+    CdrGlobalData(CdrOptions const & _options, CdrReferences const & _references, SeqInputStreams<TSequencingType> & _input, CdrOutputFiles & _outFiles) : 
         options(_options),
         references(_references),
         input(_input),

@@ -329,20 +329,20 @@ void close(std::ifstream & is) {
     is.close();
 }
 
-seqan::SeqFileIn & getInfoStream(CdrInputStreams<SingleEnd> & input) {
+seqan::SeqFileIn & getInfoStream(SeqInputStreams<SingleEnd> & input) {
     return input.stream;
 }
 
-seqan::SeqFileIn & getInfoStream(CdrInputStreams<PairedEnd> & input) {
+seqan::SeqFileIn & getInfoStream(SeqInputStreams<PairedEnd> & input) {
     return input.fwStream;
 }
 
-void resetStreams(CdrInputStreams<SingleEnd> & input) {
+void resetStreams(SeqInputStreams<SingleEnd> & input) {
     close(input.stream);
     open(input.stream, input.path.c_str());
 }
 
-void resetStreams(CdrInputStreams<PairedEnd> & input) {
+void resetStreams(SeqInputStreams<PairedEnd> & input) {
     close(input.fwStream);
     close(input.revStream);
     open(input.fwStream, input.fwPath.c_str());
@@ -1795,12 +1795,12 @@ inline void countNewClone(TCloneStore & clusterStore, Clone<Dna5> const & clone,
      
 }
 
-void readRecord(FastqRecord<PairedEnd> & fastqRecord, CdrInputStreams<PairedEnd> & inStreams) {
+void readRecord(FastqRecord<PairedEnd> & fastqRecord, SeqInputStreams<PairedEnd> & inStreams) {
     readRecord(fastqRecord.id, fastqRecord.revSeq, inStreams.revStream);
     readRecord(fastqRecord.id, fastqRecord.fwSeq, inStreams.fwStream);
 }
 
-void readRecord(FastqRecord<SingleEnd> & fastqRecord, CdrInputStreams<SingleEnd> & inStreams) {
+void readRecord(FastqRecord<SingleEnd> & fastqRecord, SeqInputStreams<SingleEnd> & inStreams) {
     readRecord(fastqRecord.id, fastqRecord.seq, inStreams.stream);
 }
 
@@ -1915,7 +1915,7 @@ inline void addRecord(QueryDataCollection<PairedEnd> & qDatCol, FastqRecord<Pair
         addRecord(qDatCol.pairedQueryData, rec);
 }
 
-inline bool inStreamsAtEnd(CdrInputStreams<PairedEnd> const & inStreams) 
+inline bool inStreamsAtEnd(SeqInputStreams<PairedEnd> const & inStreams) 
 {
     bool s1End = atEnd(inStreams.fwStream);
     bool s2End = atEnd(inStreams.revStream);
@@ -1929,7 +1929,7 @@ inline bool inStreamsAtEnd(CdrInputStreams<PairedEnd> const & inStreams)
     return false;
 }
 
-inline bool inStreamsAtEnd(CdrInputStreams<SingleEnd> const & inStreams) 
+inline bool inStreamsAtEnd(SeqInputStreams<SingleEnd> const & inStreams) 
 {
     return atEnd(inStreams.stream);
 }
@@ -1940,7 +1940,7 @@ std::mutex MUTEX_readBlockOfRecords;
 template<typename TSequencingSpec>
 long readBlockOfHighQualityRecords(
         QueryDataCollection<TSequencingSpec> & queryDataCollection,
-        CdrInputStreams<TSequencingSpec> & inStreams,
+        SeqInputStreams<TSequencingSpec> & inStreams,
         CdrOptions const & options) 
 {
     // ============================================================================

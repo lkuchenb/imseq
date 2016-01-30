@@ -98,7 +98,7 @@ int main(int argc, char ** argv)
 
     if (options.pairedEnd)
     {
-        CdrInputStreams<PairedEnd> is(
+        SeqInputStreams<PairedEnd> is(
                 inFilePaths[0],
                 inFilePaths[1]);
         CdrGlobalData<PairedEnd> global(
@@ -109,7 +109,7 @@ int main(int argc, char ** argv)
                 );
         return main_generic(inputInformation, global, options, references);
     } else {
-        CdrInputStreams<SingleEnd> is(
+        SeqInputStreams<SingleEnd> is(
                 inFilePaths[0]);
         CdrGlobalData<SingleEnd> global(
                 options,
