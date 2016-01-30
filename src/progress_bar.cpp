@@ -56,6 +56,8 @@ void ProgressBar::updateAndPrint(uint64_t finished) {
     std::unique_lock<std::mutex> lock(this->MUTEX_updateAndPrintProgress);
 #endif
     processed += finished;
+    if (processed > total)
+        processed = total;
     unsigned newSteps = processed / stepWidth;
     if (newSteps > printedSteps) {
 	this->printedSteps = newSteps;
