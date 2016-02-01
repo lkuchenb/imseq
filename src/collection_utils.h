@@ -24,6 +24,21 @@
 
 #include <map>
 
+/**
+ * Check if a collection contains a value
+ */
+template <typename TCollection, typename TValue>
+bool contains(TCollection const & coll, TValue const & value) {
+    typedef typename Iterator<TCollection const, Rooted>::Type TIt;
+    for (TIt it = begin(coll); !atEnd(it); goNext(it))
+        if (*it == value)
+            return true;
+    return false;
+}
+
+/**
+ * Check if two std collections share a value
+ */
 template<typename TC1, typename TC2>
 bool shareElement(TC1 const & c1, TC2 const & c2) {
     for (typename TC1::const_iterator it1 = c1.begin(); it1!=c1.end(); ++it1)
@@ -33,6 +48,9 @@ bool shareElement(TC1 const & c1, TC2 const & c2) {
     return false;
 }
 
+/**
+ * Check if two std::map objects share a key
+ */
 template<typename TKey, typename TValue>
 bool shareKey(std::map<TKey,TValue> const & m1, std::map<TKey,TValue> const & m2) {
     for (typename std::map<TKey,TValue>::const_iterator it1 = m1.begin(); it1!=m1.end(); ++it1)

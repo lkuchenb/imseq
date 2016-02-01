@@ -191,6 +191,10 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     // SWITCHES
     addOption(parser, ArgParseOption("bvdj", "barcode-vdj", "In paired end mode: Read the barcode from the VDJ read instead of the V read."));
     // PARAMETERS
+    addOption(parser, ArgParseOption("bmq", "bc-min-qual", "Minimum per base quality in molecular barcode region", (ArgParseArgument::INTEGER)));
+    setMinValue(parser, "bmq", "0");
+    setMaxValue(parser, "bmq", "60");
+    setDefaultValue(parser, "bmq", "30");
     addOption(parser, ArgParseOption("bcl", "barcode-length", "Length of random barcode at the beginning of the read. A value of '0' disables barcode based correction.", (ArgParseArgument::INTEGER)));
     setMinValue(parser, "bcl", "0");
     setDefaultValue(parser, "bcl", 0);
@@ -313,6 +317,7 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
 
 
     getOptionValue(options.qmin, parser, "mq");
+    getOptionValue(options.bcQmin, parser, "bmq");
     getOptionValue(options.qminclust, parser, "mcq");
     if (isSet(parser, "pve"))
         getOptionValue(options.pairedMaxErrRateVOverlap, parser, "pve");

@@ -87,7 +87,7 @@ int main(int argc, char ** argv)
 
     std::cerr << "===== Program call\n";
     for (int i=0; i<argc; ++i)
-	std::cerr << argv[i] << ' ';
+        std::cerr << argv[i] << ' ';
     std::cerr << std::endl;
 
     // ============================================================================
@@ -100,7 +100,8 @@ int main(int argc, char ** argv)
     {
         SeqInputStreams<PairedEnd> is(
                 inFilePaths[0],
-                inFilePaths[1]);
+                inFilePaths[1],
+                computeFileSize(inFilePaths[0]) + computeFileSize(inFilePaths[1]));
         CdrGlobalData<PairedEnd> global(
                 options,
                 references,
@@ -110,7 +111,8 @@ int main(int argc, char ** argv)
         return main_generic(inputInformation, global, options, references);
     } else {
         SeqInputStreams<SingleEnd> is(
-                inFilePaths[0]);
+                inFilePaths[0],
+                computeFileSize(inFilePaths[0]));
         CdrGlobalData<SingleEnd> global(
                 options,
                 references,

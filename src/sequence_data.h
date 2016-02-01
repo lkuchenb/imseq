@@ -23,94 +23,16 @@
 #define CDR3FINDER_SEQUENCE_DATA_H
 
 #include <seqan/basic.h>
+#include <seqan/sequence.h>
+
 #include "overlap_specs.h"
+#include "fastq_io_types.h"
+#include "sequence_data_types.h"
 
-/********************************************************************************
- * TAGS
- ********************************************************************************/
-
-struct SingleEnd_;
-typedef Tag<SingleEnd_> SingleEnd;
-
-struct PairedEnd_;
-typedef Tag<PairedEnd_> PairedEnd;
-
-/********************************************************************************
- * STRUCTS AND CLASSES
- ********************************************************************************/
-
-typedef String<Dna5Q>           TQueryDataSequence;
-
-template<typename T>
-struct QueryData {
-    typedef String<Dna5Q>	TSequence;
-};
-
-template<>
-struct QueryData<SingleEnd> : QueryData<void> {
-    StringSet<TQueryDataSequence>       seqs;
-    StringSet<CharString>               ids;
-};
-
-template<>
-struct QueryData<PairedEnd> : QueryData<void> {
-    StringSet<TQueryDataSequence>       fwSeqs, revSeqs;
-    StringSet<CharString>               ids;
-};
-
-template<typename TSequencingSpec>
-struct QueryDataCollection {};
-
-template<>
-struct QueryDataCollection<SingleEnd>
-{
-    QueryData<SingleEnd> queryData;
-};
-
-template<>
-struct QueryDataCollection<PairedEnd>
-{
-    QueryData<PairedEnd> pairedQueryData;
-    QueryData<SingleEnd> singleQueryData;
-};
-
-template<typename T>
-struct FastqRecord {};
-
-template<>
-struct FastqRecord<PairedEnd> {
-    typedef String<Dna5Q> TSequence;
-    TSequence   fwSeq, revSeq;
-    CharString  id;
-};
-
-template<>
-struct FastqRecord<SingleEnd> {
-    typedef String<Dna5Q> TSequence;
-    TSequence   seq;
-    CharString  id;
-
-    FastqRecord<SingleEnd> () {}
-    FastqRecord<SingleEnd> (FastqRecord<PairedEnd> const & pairRec)
-    {
-	SEQAN_CHECK(empty(pairRec.fwSeq), "PLEASE REPORT THIS ERROR");
-	seq = pairRec.revSeq;
-	id  = pairRec.id;
-    }
-};
 
 /********************************************************************************
  * FUNCTIONS
  ********************************************************************************/
-
-inline void printRecord(FastqRecord<PairedEnd> const & rec) {
-        std::cerr << "FORWARD\t" << rec.fwSeq
-            << "\nREVERSE\t" << rec.revSeq << '\n';
-}
-
-inline void printRecord(FastqRecord<SingleEnd> const & rec) {
-        std::cerr << "READ\t" << rec.seq << '\n';
-}
 
 inline unsigned nRecords(QueryData<SingleEnd> const & qData)
 {
@@ -132,13 +54,56 @@ inline unsigned nRecords(QueryDataCollection<PairedEnd> const & qDatCol) {
 
 inline void appendRecord(QueryData<SingleEnd> & target, QueryData<SingleEnd> const & source, unsigned pos) {
     appendValue(target.seqs, source.seqs[pos]);
+    appendValue(target.bcSeqs, source.bcSeqs[pos]);
     appendValue(target.ids, source.ids[pos]);
 }
 
 inline void appendRecord(QueryData<PairedEnd> & target, QueryData<PairedEnd> const & source, unsigned pos) {
     appendValue(target.fwSeqs, source.fwSeqs[pos]);
     appendValue(target.revSeqs, source.revSeqs[pos]);
+    appendValue(target.bcSeqs, source.bcSeqs[pos]);
     appendValue(target.ids, source.ids[pos]);
+}
+
+inline void clear(QueryData<SingleEnd> & qData) {
+    clear(qData.seqs);
+    clear(qData.bcSeqs);
+    clear(qData.ids);
+}
+
+inline void clear(QueryData<PairedEnd> & qData) {
+    clear(qData.fwSeqs);
+    clear(qData.revSeqs);
+    clear(qData.bcSeqs);
+    clear(qData.ids);
+}
+
+inline void addRecord(QueryData<PairedEnd> & qData, FastqRecord<PairedEnd> const & fqRecord)
+{
+    appendValue(qData.fwSeqs, fqRecord.fwSeq);
+    appendValue(qData.revSeqs, fqRecord.revSeq);
+    appendValue(qData.bcSeqs, fqRecord.bcSeq);
+    appendValue(qData.ids, fqRecord.id);
+}
+
+inline void addRecord(QueryData<SingleEnd> & qData, FastqRecord<SingleEnd> const & fqRecord)
+{
+    appendValue(qData.seqs, fqRecord.seq);
+    appendValue(qData.bcSeqs, fqRecord.bcSeq);
+    appendValue(qData.ids, fqRecord.id);
+}
+
+inline void addRecord(QueryDataCollection<SingleEnd> & qDatCol, FastqRecord<SingleEnd> const & rec)
+{
+    addRecord(qDatCol.queryData, rec);
+}
+
+inline void addRecord(QueryDataCollection<PairedEnd> & qDatCol, FastqRecord<PairedEnd> const & rec)
+{
+    if (empty(rec.fwSeq)) 
+        addRecord(qDatCol.singleQueryData, rec);
+    else
+        addRecord(qDatCol.pairedQueryData, rec);
 }
 
 // ============================================================================

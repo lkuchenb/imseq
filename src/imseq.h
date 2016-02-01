@@ -56,11 +56,15 @@
 #include "file_utils.h"
 #include "sequence_data.h"
 #include "segment_ambiguity.h"
+#include "fastq_io.h"
+#include "fastq_multi_record.h"
+#include "reject.h"
 
 #ifdef __WITHCDR3THREADS__
 #include <mutex>
 #include <thread>
 #include "thread_pool.h"
+#include "reject.h"
 #endif
 
 #ifndef REJECTLOG
@@ -104,19 +108,6 @@ inline unsigned viewEndPosition(TRow const &);
 // Tags, Classes, Enums
 // ============================================================================
 
-enum RejectReason {
-    NONE                    = 0,
-    AVERAGE_QUAL_FAIL       = 1,
-    MOTIF_AMBIGUOUS         = 2,
-    MOTIF_QUALITY_TOO_LOW   = 3,
-    NONSENSE_IN_CDR3        = 4,
-    OUT_OF_READING_FRAME    = 5,
-    SEGMENT_MATCH_FAILED    = 6,
-    BROKEN_CDR_BOUNDARIES   = 7,
-    LOW_QUALITY_BASE_IN_CDR = 8
-};
-
-const CharString _CDRREJECTS[] = {"NONE","AVERAGE_QUAL_FAIL","MOTIF_AMBIGUOUS","MOTIF_QUALITY_TOO_LOW","NONSENSE_IN_CDR3","OUT_OF_READING_FRAME","SEGMENT_MATCH_FAILED","BROKEN_CDR_BOUNDARIES","LOW_QUALITY_BASE_IN_CDR"};
 
 struct AnalysisResult{
     Clone<Dna5>     clone;
@@ -1795,15 +1786,6 @@ inline void countNewClone(TCloneStore & clusterStore, Clone<Dna5> const & clone,
      
 }
 
-void readRecord(FastqRecord<PairedEnd> & fastqRecord, SeqInputStreams<PairedEnd> & inStreams) {
-    readRecord(fastqRecord.id, fastqRecord.revSeq, inStreams.revStream);
-    readRecord(fastqRecord.id, fastqRecord.fwSeq, inStreams.fwStream);
-}
-
-void readRecord(FastqRecord<SingleEnd> & fastqRecord, SeqInputStreams<SingleEnd> & inStreams) {
-    readRecord(fastqRecord.id, fastqRecord.seq, inStreams.stream);
-}
-
 /**
  * By default, the V-read is unmodified and the V(D)J read is reverse
  * complemented. If -r was specified, the opposite is performed.
@@ -1887,32 +1869,6 @@ inline bool checkQuality(FastqRecord<PairedEnd> & fqRecord, CdrOptions const & o
         clear(fqRecord.fwSeq);
 
     return true;
-}
-
-inline void addRecord(QueryData<PairedEnd> & qData, FastqRecord<PairedEnd> const & fqRecord)
-{
-    appendValue(qData.fwSeqs, fqRecord.fwSeq);
-    appendValue(qData.revSeqs, fqRecord.revSeq);
-    appendValue(qData.ids, fqRecord.id);
-}
-
-inline void addRecord(QueryData<SingleEnd> & qData, FastqRecord<SingleEnd> const & fqRecord)
-{
-    appendValue(qData.seqs, fqRecord.seq);
-    appendValue(qData.ids, fqRecord.id);
-}
-
-inline void addRecord(QueryDataCollection<SingleEnd> & qDatCol, FastqRecord<SingleEnd> const & rec)
-{
-    addRecord(qDatCol.queryData, rec);
-}
-
-inline void addRecord(QueryDataCollection<PairedEnd> & qDatCol, FastqRecord<PairedEnd> const & rec)
-{
-    if (empty(rec.fwSeq)) 
-        addRecord(qDatCol.singleQueryData, rec);
-    else
-        addRecord(qDatCol.pairedQueryData, rec);
 }
 
 inline bool inStreamsAtEnd(SeqInputStreams<PairedEnd> const & inStreams) 
@@ -2671,7 +2627,6 @@ int main_generic(InputInformation & inputInformation, CdrGlobalData<TSequencingS
     readAndPreprocessReferences(references, global.options);
     return runAnalysis(global, inputInformation);
 }
-
 
 #endif  // #ifndef SANDBOX_LKUCHENB_APPS_CDR3FINDER_CDR3FINDER_H_
 
