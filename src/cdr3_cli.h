@@ -27,6 +27,7 @@
 #include <seqan/seq_io.h>
 #include <seqan/file.h>
 #include <seqan/index.h>
+#include "version_number.h"
 #include "thread_check.h"
 #include "logging.h"
 #include "segment_meta.h"
@@ -72,7 +73,7 @@ inline void initializeLog(Log & log, ArgumentParser& parser, std::string const &
 inline void parseCommandLine(CdrOptions & options, String<std::string> & inFilePaths, const int argc, const char** argv) {
 
     ArgumentParser parser("imseq"); 
-    setVersion(parser, "1.0.3");
+    setVersion(parser, IMSEQ_VERSION::STRING);
     setDate(parser, "October 2015");
 
     addUsageLine(parser, "-ref <segment reference> [\\fIOPTIONS\\fP] <VDJ reads>");
