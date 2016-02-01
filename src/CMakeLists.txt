@@ -9,6 +9,16 @@ message (STATUS "Configuring apps/imseq/src")
 # Search SeqAn and select dependencies.
 #set (SEQAN_FIND_DEPENDENCIES NONE)
 find_package (SeqAn REQUIRED)
+find_package (Git)
+
+if(GIT_FOUND)
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} describe --dirty=-dirty
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        OUTPUT_VARIABLE DESCRIBE_BUILD
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+    #    string(REGEX MATCH "[0-9]+" BUILD_NUMBER ${DESCRIBE_BUILD})
+endif()
 
 # ----------------------------------------------------------------------------
 # Build Setup
@@ -19,6 +29,7 @@ include_directories (${SEQAN_INCLUDE_DIRS})
 
 # Add definitions set by find_package (SeqAn).
 add_definitions (${SEQAN_DEFINITIONS})
+add_definitions (-DBUILD_NUMBER=${DESCRIBE_BUILD})
 
 # IMSEQ static build for Linux
 if ("${CMAKE_IMSEQ_LINUX_STATIC}" EQUAL "true")
@@ -68,6 +79,8 @@ add_executable (imseq
 	thread_pool.cpp
 	thread_pool.h
 	timeFormat.h
+	version_number.cpp
+	version_number.h
 	vjMatching.h
 	)
 
