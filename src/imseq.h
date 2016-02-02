@@ -59,6 +59,7 @@
 #include "fastq_io.h"
 #include "fastq_multi_record.h"
 #include "reject.h"
+#include "barcode_correction.h"
 
 #ifdef __WITHCDR3THREADS__
 #include <mutex>

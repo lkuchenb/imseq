@@ -199,6 +199,10 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     addOption(parser, ArgParseOption("bcl", "barcode-length", "Length of random barcode at the beginning of the read. A value of '0' disables barcode based correction.", (ArgParseArgument::INTEGER)));
     setMinValue(parser, "bcl", "0");
     setDefaultValue(parser, "bcl", 0);
+    addOption(parser, ArgParseOption("ber", "barcode-err-rate", "Maximum error rate between reads in order to be merged based on barcode sequence", (ArgParseArgument::DOUBLE)));
+    setMinValue(parser, "ber", "0");
+    setMaxValue(parser, "ber", "1");
+    setDefaultValue(parser, "ber", 0.03);
 
 
     //================================================================================
@@ -329,6 +333,7 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     options.mergeIdenticalCDRs = isSet(parser, "ma");
 
     getOptionValue(options.barcodeLength, parser, "bcl");
+    getOptionValue(options.bcClustMaxErrRate, parser, "ber");
     options.barcodeVDJRead = isSet(parser, "bvdj");
 
     // CLUSTERING

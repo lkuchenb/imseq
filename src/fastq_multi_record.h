@@ -30,12 +30,27 @@
 #include "fastq_io_types.h"
 #include "fastq_multi_record_types.h"
 #include "reject.h"
+#include "progress_bar.h"
 
 using namespace seqan;
 
 /*-------------------------------------------------------------------------------
  - FastqMultiRecordCollection
  -------------------------------------------------------------------------------*/
+
+inline std::string toString(FastqMultiRecord<SingleEnd> const & rec)
+{
+    std::stringstream ss;
+    ss << rec.ids.size() << '\t' << rec.bcSeq << '\t' << rec.seq;
+    return ss.str();
+}
+
+inline std::string toString(FastqMultiRecord<PairedEnd> const & rec)
+{
+    std::stringstream ss;
+    ss << rec.ids.size() << '\t' << rec.bcSeq << '\t' << rec.fwSeq << '\t' << rec.revSeq;
+    return ss.str();
+}
 
 /**
  * Clear all data from a FastqMultiRecordCollection
@@ -71,13 +86,18 @@ inline BarcodeStats getBarcodeStats(FastqMultiRecordCollection<SingleEnd> const 
     for (TBcMap::const_iterator bcIt = bcMap.begin(); bcIt != bcMap.end(); ++bcIt) {
         uint64_t cnt = 0;
         TSeqMap const & seqMap = bcIt->second;
+        uint64_t seqMapSize = 0;
         for (TSeqMap::const_iterator seqIt = seqMap.begin(); seqIt != seqMap.end(); ++seqIt) {
             cnt += coll.multiRecords[seqIt->second].ids.size();
+            if (coll.multiRecords[seqIt->second].ids.size() > 0)
+                ++seqMapSize;
         }
         if (cnt > 0) {
             appendValue(stats.bcSeqs, bcIt->first);
             appendValue(stats.nReads, cnt);
-            appendValue(stats.nUniqueReads, seqMap.size());
+            appendValue(stats.nUniqueReads, seqMapSize);
+            stats.nTotalUniqueReads += seqMapSize;
+            stats.nTotalReads += cnt;
         }
     }
 
@@ -101,14 +121,19 @@ inline BarcodeStats getBarcodeStats(FastqMultiRecordCollection<PairedEnd> const 
         for (TFwSeqMap::const_iterator fwSeqIt = fwSeqMap.begin(); fwSeqIt != fwSeqMap.end(); ++fwSeqIt) {
             TRevSeqMap const & revSeqMap = fwSeqIt->second;
             for (TRevSeqMap::const_iterator revSeqIt = revSeqMap.begin(); revSeqIt!=revSeqMap.end(); ++revSeqIt) {
-                cnt += coll.multiRecords[revSeqIt->second].ids.size();
+                uint64_t s = coll.multiRecords[revSeqIt->second].ids.size();
+                if (s>0) {
+                    cnt += s;
+                    ++uCnt;
+                }
             }
-            uCnt += revSeqMap.size();
         }
         if (cnt > 0) {
             appendValue(stats.bcSeqs, bcIt->first);
             appendValue(stats.nReads, cnt);
             appendValue(stats.nUniqueReads, uCnt);
+            stats.nTotalUniqueReads += uCnt;
+            stats.nTotalReads += cnt;
         }
     }
 
@@ -321,8 +346,10 @@ bool readRecords(FastqMultiRecordCollection<TSequencingSpec> & collection,
     uint64_t blockBytes = 0;
     while (!inStreamsAtEnd(inStreams)) {
         bool tsfb = false;
-        if (count > 0 && complCount == count)
+        if (count > 0 && complCount == count) {
+            progBar->clear();
             return !inStreamsAtEnd(inStreams);
+        }
         if (options.barcodeLength > 0) {
             if (!readRecord(rec, inStreams, options.barcodeVDJRead, options.barcodeLength)) {
                 tsfb = true;

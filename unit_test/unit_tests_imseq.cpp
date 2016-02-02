@@ -34,6 +34,7 @@ SEQAN_BEGIN_TESTSUITE(unit_tests_imseq)
     // unit_tests_imseq_barcode_correction.h
     SEQAN_CALL_TEST(unit_tests_imseq_barcode_correction_splitBarcodeSeq);
     SEQAN_CALL_TEST(unit_tests_imseq_barcode_correction_splitBarcodeSeq__FastqRecord);
+    SEQAN_CALL_TEST(unit_tests_imseq_barcode_correction_withinClusteringSpecs);
 
     // unit_tests_imseq_fastq_io.h
     SEQAN_CALL_TEST(unit_tests_imseq_fastq_io_qualityControl);

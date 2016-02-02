@@ -84,8 +84,8 @@ template<>
 struct FastqMultiRecordCollection<SingleEnd> {
     static uint64_t const NO_MATCH = std::numeric_limits<uint64_t>::max();
 
-    typedef std::map<FastqMultiRecord<PairedEnd>::TSequence, unsigned> TSeqMap;
-    typedef std::map<FastqMultiRecord<PairedEnd>::TSequence, TSeqMap> TBcMap;
+    typedef std::map<FastqMultiRecord<SingleEnd>::TSequence, unsigned> TSeqMap;
+    typedef std::map<FastqMultiRecord<SingleEnd>::TSequence, TSeqMap> TBcMap;
 
     String<FastqMultiRecord<SingleEnd> > multiRecords;
     TBcMap bcMap;
@@ -111,7 +111,8 @@ struct BarcodeStats {
     StringSet<String<Dna5> > bcSeqs;
     String<uint64_t> nReads;
     String<uint64_t> nUniqueReads;
-    BarcodeStats() : nReads(0), nUniqueReads(0) {}
+    uint64_t nTotalUniqueReads, nTotalReads;
+    BarcodeStats() : nTotalUniqueReads(0), nTotalReads(0) {}
 };
 
 #endif
