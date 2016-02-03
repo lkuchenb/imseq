@@ -36,14 +36,15 @@
 #include "fastq_io_types.h"
 #include "fastq_multi_record_types.h"
 #include "fastq_multi_record.h"
+#include "thread_pool.h"
 
 using namespace seqan;
 
 /**
- * Separate barcode and sequence
- * @param       seq The original sequence to be modified
- * @param     bcSeq The object to store the barcode sequence in
- * @param      opts Runtime options
+ * Separate sequence and barcode which is a prefix of the sequence
+ * @param       seq     The original sequence to be modified
+ * @param     bcSeq     The object to store the barcode sequence in
+ * @param barcodeLength Length of the barcode
  */
 template<typename TSequence>
 bool splitBarcodeSeq(TSequence & seq, TSequence & bcSeq, unsigned const barcodeLength) {
@@ -122,18 +123,14 @@ inline bool withinClusteringSpecs(FastqMultiRecord<PairedEnd> const & recA,
         && belowErrRate(recA.revSeq, recB.revSeq, options.bcClustMaxErrRate);
 }
 
-template<typename TSequencingSpec, typename TIterator>
+template<typename TSequencingSpec>
 struct FastqMultiRecordSizeComparator{
 
-    FastqMultiRecordCollection<TSequencingSpec> const & collection;
-
-    bool operator() (TIterator const lhs,
-            TIterator const rhs)
+    bool operator() (FastqMultiRecord<TSequencingSpec> const * const lhs,
+            FastqMultiRecord<TSequencingSpec> const * const rhs) const
     {
-        return collection.multiRecords[lhs->second].ids.size() > collection.multiRecords[rhs->second].ids.size();
+        return lhs->ids.size() > rhs->ids.size();
     }
-
-    FastqMultiRecordSizeComparator(FastqMultiRecordCollection<TSequencingSpec> const & collection_) : collection(collection_) {}
 
 };
 
@@ -141,44 +138,86 @@ struct FastqMultiRecordSizeComparator{
  * Merge identically barcoded FastqMultiRecord given in a descendingly sorted
  * vector. The resulting vector contains FastqMultiRecord with empty ID sets
  * for those records that were reassigned to another record.
+ * THREADSAFE
  */
-template<typename TSequencingSpec, typename TIterator>
-void mergeIdenticallyBarcoded(std::vector<TIterator> & mVector,
-        FastqMultiRecordCollection<TSequencingSpec> & coll,
-        CdrOptions const & options)
+template<typename TSequencingSpec>
+void mergeIdenticallyBarcoded(std::vector<FastqMultiRecord<TSequencingSpec>*> & mVector,
+        CdrOptions const & options,
+        ProgressBar * progBar = NULL)
 {
     typedef FastqMultiRecord<TSequencingSpec> TMRec;
-    typedef std::vector<TIterator> TMultiVector;
+    typedef std::vector<FastqMultiRecord<TSequencingSpec>*> TMultiVector;
 
+    uint64_t cnt = 0;
     for (typename TMultiVector::reverse_iterator currentIt = mVector.rbegin(); currentIt != mVector.rend(); ++currentIt)
     {
-        typename TMultiVector::reverse_iterator nextLargerIt = currentIt;
-        TMRec & current = coll.multiRecords[(*currentIt)->second];
-        for (++nextLargerIt; nextLargerIt != mVector.rend(); ++nextLargerIt)
+        TMRec & current = **currentIt;
+        for (typename TMultiVector::iterator largerIt = mVector.begin(); largerIt != mVector.end(); ++largerIt)
         {
-            TMRec & nextLarger = coll.multiRecords[(*nextLargerIt)->second];
-            if (withinClusteringSpecs(current, nextLarger, options))
+            TMRec & larger = **largerIt;
+            // We have reached the zone of same sized FastqMultiRecords that
+            // includes the current one. Abort here, we don't want to cluster
+            // to a FastqMultiRecord of the same size
+            if ((static_cast<double>(current.ids.size()) / static_cast<double>(larger.ids.size())) >= options.bcClustMaxFreqRate) {
+                break;
+            }
+            // Check if the clustering specs are met and if so, reassign IDs
+            // and abort
+            if (withinClusteringSpecs(current, larger, options))
             {
-                nextLarger.ids.insert(current.ids.begin(), current.ids.end());
+                larger.ids.insert(current.ids.begin(), current.ids.end());
                 current.ids.clear();
+                break;
             }
         }
+        ++cnt;
+        if (progBar != NULL && cnt % 12 == 0) {
+            progBar->updateAndPrint(cnt);
+            cnt=0;
+        }
     }
+    progBar->updateAndPrint(cnt);
 }
 
 /**
- * Performs the barcode correction given a collection of
- * FastqMultiRecordCollection and the runtime options specified by the user
+ * Collects all FastqMultiRecords per barcode ordered by size for clustering
+ * @special Single end
+ */
+inline std::vector<std::vector<FastqMultiRecord<SingleEnd>*> > makeBarcodeCorrectionVector(FastqMultiRecordCollection<SingleEnd> & collection)
+{
+    typedef FastqMultiRecordCollection<SingleEnd> TColl;
+    typedef TColl::TBcMap TBcMap;
+    typedef TColl::TSeqMap TSeqMap;
+    typedef std::vector<FastqMultiRecord<SingleEnd>*> TMultiVector;
+
+    std::vector<TMultiVector> mVectors;
+    TBcMap & bcMap = collection.bcMap;
+    for (TBcMap::iterator bcIt = bcMap.begin(); bcIt != bcMap.end(); ++bcIt)
+    {
+        TSeqMap & seqMap = bcIt->second;
+        TMultiVector mVector;
+        for (TSeqMap::iterator seqIt = seqMap.begin(); seqIt != seqMap.end(); ++seqIt)
+        {
+            mVector.push_back(&(collection.multiRecords[seqIt->second]));
+        }
+        std::sort(mVector.begin(), mVector.end(), FastqMultiRecordSizeComparator<SingleEnd>());
+        mVectors.push_back(mVector);
+    }
+    return mVectors;
+}
+
+/**
  * @special Paired end
  */
-inline void barcodeCorrection(FastqMultiRecordCollection<PairedEnd> & collection, CdrOptions const & options)
+inline std::vector<std::vector<FastqMultiRecord<PairedEnd>*> > makeBarcodeCorrectionVector(FastqMultiRecordCollection<PairedEnd> & collection)
 {
     typedef FastqMultiRecordCollection<PairedEnd> TColl;
     typedef TColl::TBcMap TBcMap;
     typedef TColl::TFwSeqMap TFwSeqMap;
     typedef TColl::TRevSeqMap TRevSeqMap;
-    typedef std::vector<TRevSeqMap::iterator> TMultiVector;
+    typedef std::vector<FastqMultiRecord<PairedEnd>*> TMultiVector;
 
+    std::vector<TMultiVector> mVectors;
     TBcMap & bcMap = collection.bcMap;
     for (TBcMap::iterator bcIt = bcMap.begin(); bcIt != bcMap.end(); ++bcIt)
     {
@@ -189,36 +228,51 @@ inline void barcodeCorrection(FastqMultiRecordCollection<PairedEnd> & collection
             TRevSeqMap & revSeqMap = fwSeqIt->second;
             for (TRevSeqMap::iterator revSeqIt = revSeqMap.begin(); revSeqIt != revSeqMap.end(); ++revSeqIt)
             {
-                mVector.push_back(revSeqIt);
+                mVector.push_back(&(collection.multiRecords[revSeqIt->second]));
             }
         }
-        std::sort(mVector.begin(), mVector.end(), FastqMultiRecordSizeComparator<PairedEnd, TRevSeqMap::iterator>(collection));
-        mergeIdenticallyBarcoded(mVector, collection, options);
+        std::sort(mVector.begin(), mVector.end(), FastqMultiRecordSizeComparator<PairedEnd>());
+        mVectors.push_back(mVector);
     }
+    return mVectors;
 }
 
 /**
- * @special Single end
+ * Performs the barcode correction given a collection of
+ * FastqMultiRecordCollection and the runtime options specified by the user
+ * @special Paired end
  */
-inline void barcodeCorrection(FastqMultiRecordCollection<SingleEnd> & collection, CdrOptions const & options)
+template<typename TSequencingSpec>
+void barcodeCorrection(FastqMultiRecordCollection<TSequencingSpec> & collection,
+        CdrOptions const & options)
 {
-    typedef FastqMultiRecordCollection<SingleEnd> TColl;
-    typedef TColl::TBcMap TBcMap;
-    typedef TColl::TSeqMap TSeqMap;
-    typedef std::vector<TSeqMap::iterator> TMultiVector;
+    typedef std::vector<FastqMultiRecord<TSequencingSpec>*> TMultiVector;
 
-    TBcMap & bcMap = collection.bcMap;
-    for (TBcMap::iterator bcIt = bcMap.begin(); bcIt != bcMap.end(); ++bcIt)
-    {
-        TSeqMap & seqMap = bcIt->second;
-        TMultiVector mVector;
-        for (TSeqMap::iterator seqIt = seqMap.begin(); seqIt != seqMap.end(); ++seqIt)
-        {
-            mVector.push_back(seqIt);
-        }
-        std::sort(mVector.begin(), mVector.end(), FastqMultiRecordSizeComparator<SingleEnd, TSeqMap::iterator>(collection));
-        mergeIdenticallyBarcoded(mVector, collection, options);
+    // Collect the tasks
+    std::vector<TMultiVector> mVectors = makeBarcodeCorrectionVector(collection);
+
+    // Execute them in parallel
+    BarcodeStats stats = getBarcodeStats(collection);
+    ProgressBar progBar(std::cerr, stats.nTotalUniqueReads , 100, "      ");
+    progBar.print_progress();
+
+    { // Scope for ThreadPool which joins threads on destruct
+#ifdef __WITHCDR3THREADS__
+        ThreadPool threadPool(options.jobs);
+#endif
+        for (TMultiVector & mVector : mVectors)
+#ifdef __WITHCDR3THREADS__
+            threadPool.enqueue<void>([&]()
+                    {
+#endif
+                    mergeIdenticallyBarcoded(mVector, options, & progBar);
+#ifdef __WITHCDR3THREADS__
+                    }
+                    );
+#endif
     }
+
+    progBar.clear();
 }
 
 #endif

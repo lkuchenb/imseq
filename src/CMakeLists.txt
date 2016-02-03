@@ -56,6 +56,7 @@ add_executable (imseq
 	fastq_io_types.h
 	fastq_multi_record.h
 	fastq_multi_record_types.h
+	fastq_multi_record_types.cpp
 	file_utils.h
 	fixed_size_types.h
 	globalData.h

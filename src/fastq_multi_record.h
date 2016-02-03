@@ -289,7 +289,7 @@ inline void updateMultiRecord(FastqMultiRecord<PairedEnd> & multiRecord,
  * @param      insert true = insert if no match, false = don't insert. Default: false;
  */
 template <typename TSequencingSpec>
-bool findContainingMultiRecord(FastqMultiRecord<TSequencingSpec> & multiRecord,
+bool findContainingMultiRecord(FastqMultiRecord<TSequencingSpec> const * multiRecord,
         FastqMultiRecordCollection<TSequencingSpec> & collection,
         FastqRecord<TSequencingSpec> const & record,
         bool insert = false)
@@ -297,25 +297,27 @@ bool findContainingMultiRecord(FastqMultiRecord<TSequencingSpec> & multiRecord,
     typedef FastqMultiRecordCollection<TSequencingSpec> TColl;
     typedef typename FastqMultiRecord<TSequencingSpec>::TIds TIds;
 
+    multiRecord = NULL;
     uint64_t mRecId = findMultiRecordPosition(collection, record);
     if (mRecId != TColl::NO_MATCH) {
         FastqMultiRecord<TSequencingSpec> & oldMultiRecord = collection.multiRecords[mRecId];
         TIds & ids = oldMultiRecord.ids;
         if (ids.find(record.id) != ids.end()) {
-            multiRecord = oldMultiRecord;
+            multiRecord = & oldMultiRecord;
             return true;
         } else {
             if (!insert)
                 return false;
             updateMultiRecord(oldMultiRecord, record);
-            multiRecord = oldMultiRecord;
+            multiRecord = & oldMultiRecord;
             return true;
         }
     } else {
         if (!insert)
             return false;
-        multiRecord = newMultiRecord(record);
-        mapMultiRecord(collection, multiRecord);
+        FastqMultiRecord<TSequencingSpec> rec = newMultiRecord(record);
+        mapMultiRecord(collection, rec);
+        multiRecord = & rec;
         return true;
     }
 }
@@ -336,6 +338,8 @@ bool readRecords(FastqMultiRecordCollection<TSequencingSpec> & collection,
         CdrOptions const & options,
         unsigned count = 0)
 {
+    typedef FastqMultiRecord<TSequencingSpec> TMRec;
+
     ProgressBar * progBar = NULL;
     if (inStreams.totalInBytes > 0)
         progBar = new ProgressBar(std::cerr, inStreams.totalInBytes, 100, "      ");
@@ -358,7 +362,6 @@ bool readRecords(FastqMultiRecordCollection<TSequencingSpec> & collection,
             readRecord(rec, inStreams);
         }
 
-
         // Count the read record
         ++complCount;
         blockBytes += approxSizeInBytes(rec);
@@ -370,7 +373,7 @@ bool readRecords(FastqMultiRecordCollection<TSequencingSpec> & collection,
         // FASTQ-Read QC
         RejectReason r = tsfb ? TOO_SHORT_FOR_BARCODE : qualityControl(rec, options);
         if (r == NONE) {
-            FastqMultiRecord<TSequencingSpec> multiRecord;
+            TMRec const * multiRecord = NULL;
             findContainingMultiRecord(multiRecord, collection, rec, true);
         } else {
             appendValue(rejectEvents, RejectEvent(rec.id, r));

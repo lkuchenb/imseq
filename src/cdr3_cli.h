@@ -203,6 +203,10 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     setMinValue(parser, "ber", "0");
     setMaxValue(parser, "ber", "1");
     setDefaultValue(parser, "ber", 0.03);
+    addOption(parser, ArgParseOption("bfr", "barcode-freq-rate", "Inclusive maximum frequency ratio between smaller and larger cluster during barcode clustering", (ArgParseArgument::DOUBLE)));
+    setMinValue(parser, "bfr", "0");
+    setMaxValue(parser, "bfr", "1");
+    setDefaultValue(parser, "bfr", 0.02);
 
 
     //================================================================================
@@ -334,6 +338,7 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
 
     getOptionValue(options.barcodeLength, parser, "bcl");
     getOptionValue(options.bcClustMaxErrRate, parser, "ber");
+    getOptionValue(options.bcClustMaxFreqRate, parser, "bfr");
     options.barcodeVDJRead = isSet(parser, "bvdj");
 
     // CLUSTERING

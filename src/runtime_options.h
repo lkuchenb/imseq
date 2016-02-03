@@ -79,8 +79,9 @@ struct CdrOptions {
     unsigned barcodeLength;
     bool barcodeVDJRead;
     double bcClustMaxErrRate;
+    double bcClustMaxFreqRate;
     
-    CdrOptions() : qmin(0), bcQmin(0), jobs(1), reverse(false), mergeAllels(false), cacheMatches(false), qualClustering(false), simpleClustering(false), mergeIdenticalCDRs(false), pairedEnd(false), bcRevRead(false), maxErrRateV(0), maxErrRateJ(0), maxVCoreErrors(0), maxJCoreErrors(0), vSCFLength(0), jSCFLength(0), vSCFOffset(-999), jSCFOffset(-999), vSCFLengthAuto(false), vReadCrop(0), barcodeLength(0), barcodeVDJRead(false), bcClustMaxErrRate(0.05) {}
+    CdrOptions() : qmin(0), bcQmin(0), jobs(1), reverse(false), mergeAllels(false), cacheMatches(false), qualClustering(false), simpleClustering(false), mergeIdenticalCDRs(false), pairedEnd(false), bcRevRead(false), maxErrRateV(0), maxErrRateJ(0), maxVCoreErrors(0), maxJCoreErrors(0), vSCFLength(0), jSCFLength(0), vSCFOffset(-999), jSCFOffset(-999), vSCFLengthAuto(false), vReadCrop(0), barcodeLength(0), barcodeVDJRead(false), bcClustMaxErrRate(0), bcClustMaxFreqRate(0) {}
 };
 
 // ============================================================================
