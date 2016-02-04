@@ -53,6 +53,26 @@ inline std::string toString(FastqMultiRecord<PairedEnd> const & rec)
 }
 
 /**
+ * Make a FastqRecord from a FastqMultiRecord, with an empty ID and default qualities
+ */
+inline FastqRecord<SingleEnd> toFastqRecordSkel(FastqMultiRecord<SingleEnd> const & mRec)
+{
+    FastqRecord<SingleEnd> rec;
+    rec.seq    = mRec.seq;
+    rec.bcSeq  = mRec.bcSeq;
+    return rec;
+}
+
+inline FastqRecord<PairedEnd> toFastqRecordSkel(FastqMultiRecord<PairedEnd> const & mRec)
+{
+    FastqRecord<PairedEnd> rec;
+    rec.fwSeq  = mRec.fwSeq;
+    rec.revSeq = mRec.revSeq;
+    rec.bcSeq  = mRec.bcSeq;
+    return rec;
+}
+
+/**
  * Clear all data from a FastqMultiRecordCollection
  */
 template <typename TSequencingSpec>
@@ -122,10 +142,9 @@ inline BarcodeStats getBarcodeStats(FastqMultiRecordCollection<PairedEnd> const 
             TRevSeqMap const & revSeqMap = fwSeqIt->second;
             for (TRevSeqMap::const_iterator revSeqIt = revSeqMap.begin(); revSeqIt!=revSeqMap.end(); ++revSeqIt) {
                 uint64_t s = coll.multiRecords[revSeqIt->second].ids.size();
-                if (s>0) {
-                    cnt += s;
+                cnt += s;
+                if (s>0)
                     ++uCnt;
-                }
             }
         }
         if (cnt > 0) {
@@ -136,7 +155,6 @@ inline BarcodeStats getBarcodeStats(FastqMultiRecordCollection<PairedEnd> const 
             stats.nTotalReads += cnt;
         }
     }
-
     return stats;
 }
 
@@ -197,6 +215,22 @@ FastqMultiRecord<TSequencingSpec> _generic_newMultiRecord(FastqRecord<TSequencin
     return(multiRecord);
 }
 
+inline void updateMeanQualityValues(String<float> & targetQualities,
+        uint64_t const targetWeight,
+        String<float> const & newQualities,
+        uint64_t const newWeight)
+{
+    SEQAN_CHECK((length(targetQualities)==0 && targetWeight==0) || (length(targetQualities) == length(newQualities) && length(targetQualities) > 0), "Please report this error.");
+    if (length(targetQualities) == 0)
+    {
+        targetQualities = newQualities;
+    } else {
+        for (size_t i = 0; i<length(targetQualities); ++i)
+            targetQualities[i] = (static_cast<double>(targetWeight) * targetQualities[i]
+                    + static_cast<double>(newWeight) * newQualities[i]) / (targetWeight + newWeight);
+    }
+}
+
 /**
  * Updates mean quality values based on the current mean quality values, the
  * number of elements that contributed to them (origWeight) and the new quality
@@ -211,6 +245,19 @@ void updateMeanQualityValues(String<float> & qualities,
         resize(qualities, length(seq), 0);
     for (unsigned i=0; i<length(seq); ++i)
         qualities[i] = ((qualities[i] * origWeight) + getQualityValue(seq[i])) / (origWeight+1);
+}
+
+inline void updateMeanQualityValues(FastqMultiRecord<SingleEnd> & target,
+        FastqMultiRecord<SingleEnd> const & source)
+{
+    updateMeanQualityValues(target.qualities, target.ids.size(), source.qualities, source.ids.size());
+}
+
+inline void updateMeanQualityValues(FastqMultiRecord<PairedEnd> & target,
+        FastqMultiRecord<PairedEnd> const & source)
+{
+    updateMeanQualityValues(target.fwQualities, target.ids.size(), source.fwQualities, source.ids.size());
+    updateMeanQualityValues(target.revQualities, target.ids.size(), source.revQualities, source.ids.size());
 }
 
 /**
@@ -236,20 +283,24 @@ inline FastqMultiRecord<PairedEnd> newMultiRecord(FastqRecord<PairedEnd> const &
  * Appends a FastqMultiRecord to a FastqMultiRecordCollection and updates the
  * internal maps
  */
-inline void mapMultiRecord(FastqMultiRecordCollection<PairedEnd> & collection,
+inline FastqMultiRecord<PairedEnd> & mapMultiRecord(FastqMultiRecordCollection<PairedEnd> & collection,
         FastqMultiRecord<PairedEnd> const & multiRecord) {
     appendValue(collection.multiRecords, multiRecord);
     SEQAN_CHECK(collection.bcMap[multiRecord.bcSeq][multiRecord.fwSeq].find(multiRecord.revSeq)
             == collection.bcMap[multiRecord.bcSeq][multiRecord.fwSeq].end(), "Please report this error");
-    collection.bcMap[multiRecord.bcSeq][multiRecord.fwSeq][multiRecord.revSeq] = length(collection.multiRecords) - 1;
+    size_t new_idx = length(collection.multiRecords) - 1;
+    collection.bcMap[multiRecord.bcSeq][multiRecord.fwSeq][multiRecord.revSeq] = new_idx;
+    return collection.multiRecords[new_idx];
 }
 
-inline void mapMultiRecord(FastqMultiRecordCollection<SingleEnd> & collection,
+inline FastqMultiRecord<SingleEnd> & mapMultiRecord(FastqMultiRecordCollection<SingleEnd> & collection,
         FastqMultiRecord<SingleEnd> const & multiRecord) {
     appendValue(collection.multiRecords, multiRecord);
     SEQAN_CHECK(collection.bcMap[multiRecord.bcSeq].find(multiRecord.seq)
             == collection.bcMap[multiRecord.bcSeq].end(), "Please report this error");
-    collection.bcMap[multiRecord.bcSeq][multiRecord.seq] = length(collection.multiRecords) - 1;
+    size_t new_idx = length(collection.multiRecords) - 1;
+    collection.bcMap[multiRecord.bcSeq][multiRecord.seq] = new_idx;
+    return collection.multiRecords[new_idx];
 }
 
 /**
@@ -280,45 +331,96 @@ inline void updateMultiRecord(FastqMultiRecord<PairedEnd> & multiRecord,
  * Find the FastqMultiRecord that contains a certain FastqRecord within a
  * FastqMultiRecordCollection. If the specified FastqRecord is not yet in the
  * FastqMultiRecordCollection and insert=true is specified, add the record to
- * the collection.
+ * the collection. Matching does not consider FASTQ ID, the 'insert' feature
+ * does.
  *
  * @param multiRecord The output FastqMultiRecord object to write the maching
  *                    multi-record to if one was found or inserted.
  * @param  collection The FastqMultiRecordCollection to search in / modify
  * @param      record The FastqRecord to look for / insert
  * @param      insert true = insert if no match, false = don't insert. Default: false;
+ *
+ * @return            A pointer to the found record, NULL if there was no
+ *                    matching record.
  */
 template <typename TSequencingSpec>
-bool findContainingMultiRecord(FastqMultiRecord<TSequencingSpec> const * multiRecord,
-        FastqMultiRecordCollection<TSequencingSpec> & collection,
+FastqMultiRecord<TSequencingSpec> * findContainingMultiRecord(FastqMultiRecordCollection<TSequencingSpec> & collection,
         FastqRecord<TSequencingSpec> const & record,
         bool insert = false)
 {
     typedef FastqMultiRecordCollection<TSequencingSpec> TColl;
     typedef typename FastqMultiRecord<TSequencingSpec>::TIds TIds;
 
-    multiRecord = NULL;
     uint64_t mRecId = findMultiRecordPosition(collection, record);
     if (mRecId != TColl::NO_MATCH) {
         FastqMultiRecord<TSequencingSpec> & oldMultiRecord = collection.multiRecords[mRecId];
         TIds & ids = oldMultiRecord.ids;
         if (ids.find(record.id) != ids.end()) {
-            multiRecord = & oldMultiRecord;
-            return true;
+            return & oldMultiRecord;
         } else {
             if (!insert)
-                return false;
+                return & oldMultiRecord;
             updateMultiRecord(oldMultiRecord, record);
-            multiRecord = & oldMultiRecord;
-            return true;
+            return & oldMultiRecord;
         }
     } else {
         if (!insert)
-            return false;
-        FastqMultiRecord<TSequencingSpec> rec = newMultiRecord(record);
-        mapMultiRecord(collection, rec);
-        multiRecord = & rec;
-        return true;
+            return NULL;
+        return &(mapMultiRecord(collection, newMultiRecord(record)));
+    }
+}
+
+template<typename TSequencingSpec>
+FastqMultiRecord<TSequencingSpec> & mergeRecord(FastqMultiRecordCollection<TSequencingSpec> & collection,
+        FastqMultiRecord<TSequencingSpec> const & rec)
+{
+    FastqMultiRecord<TSequencingSpec> * existingRecPtr = findContainingMultiRecord(collection, toFastqRecordSkel(rec), false);
+    if (existingRecPtr != NULL)
+    {
+        FastqMultiRecord<TSequencingSpec> & existingRec = *existingRecPtr;
+        updateMeanQualityValues(existingRec, rec);
+        return existingRec;
+    }
+    appendValue(collection.multiRecords, rec);
+    size_t newIdx = length(collection.multiRecords)-1;
+    FastqMultiRecord<TSequencingSpec> & newRec = collection.multiRecords[newIdx];
+    mapMultiRecord(collection, newRec);
+    return newRec;
+}
+
+inline void printCollection(FastqMultiRecordCollection<SingleEnd> const & coll)
+{
+    for (auto bcMapElem : coll.bcMap)
+    {
+        std::cerr << bcMapElem.first << "\n";
+        for (auto seqElem : bcMapElem.second)
+        {
+            std::cerr << "    " << seqElem.first << std::endl;
+            for (auto recId : coll.multiRecords[seqElem.second].ids)
+            {
+                std::cerr << "            " << recId << '\n';
+            }
+        }
+    }
+}
+
+inline void printCollection(FastqMultiRecordCollection<PairedEnd> const & coll)
+{
+    for (auto bcMapElem : coll.bcMap)
+    {
+        std::cerr << bcMapElem.first << "\n";
+        for (auto fwSeqElem : bcMapElem.second)
+        {
+            std::cerr << "    " << fwSeqElem.first << std::endl;
+            for (auto revSeqElem : fwSeqElem.second)
+            {
+                std::cerr << "        " << revSeqElem.first << std::endl;
+                for (auto recId : coll.multiRecords[revSeqElem.second].ids)
+                {
+                    std::cerr << "            " << recId << '\n';
+                }
+            }
+        }
     }
 }
 
@@ -338,8 +440,6 @@ bool readRecords(FastqMultiRecordCollection<TSequencingSpec> & collection,
         CdrOptions const & options,
         unsigned count = 0)
 {
-    typedef FastqMultiRecord<TSequencingSpec> TMRec;
-
     ProgressBar * progBar = NULL;
     if (inStreams.totalInBytes > 0)
         progBar = new ProgressBar(std::cerr, inStreams.totalInBytes, 100, "      ");
@@ -373,8 +473,7 @@ bool readRecords(FastqMultiRecordCollection<TSequencingSpec> & collection,
         // FASTQ-Read QC
         RejectReason r = tsfb ? TOO_SHORT_FOR_BARCODE : qualityControl(rec, options);
         if (r == NONE) {
-            TMRec const * multiRecord = NULL;
-            findContainingMultiRecord(multiRecord, collection, rec, true);
+            findContainingMultiRecord(collection, rec, true);
         } else {
             appendValue(rejectEvents, RejectEvent(rec.id, r));
         }

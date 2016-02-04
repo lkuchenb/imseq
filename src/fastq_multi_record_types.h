@@ -124,7 +124,8 @@ struct FastqMultiRecordCollection<PairedEnd> {
  -------------------------------------------------------------------------------*/
 
 struct BarcodeStats {
-    StringSet<String<Dna5> > bcSeqs;
+    typedef StringSet<String<Dna5> > TBcSeqs;
+    TBcSeqs bcSeqs;
     String<uint64_t> nReads;
     String<uint64_t> nUniqueReads;
     uint64_t nTotalUniqueReads, nTotalReads;
