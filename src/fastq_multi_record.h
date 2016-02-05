@@ -72,26 +72,29 @@ inline FastqRecord<PairedEnd> toFastqRecordSkel(FastqMultiRecord<PairedEnd> cons
     return rec;
 }
 
+template<typename TSequencingSpec>
+FastqMultiRecord<TSequencingSpec> & getMultiRecord(FastqMultiRecordCollection<TSequencingSpec> & coll, size_t const idx)
+{
+    SEQAN_CHECK(idx >= 0 && idx < length(coll.multiRecordPtrs), "Please report this error.");
+    return *coll.multiRecordPtrs[idx];
+}
+
+template<typename TSequencingSpec>
+FastqMultiRecord<TSequencingSpec> const & getMultiRecord(FastqMultiRecordCollection<TSequencingSpec> const & coll, size_t const idx)
+{
+    SEQAN_CHECK(idx >= 0 && idx < length(coll.multiRecordPtrs), "Please report this error.");
+    return *coll.multiRecordPtrs[idx];
+}
+
 /**
  * Clear all data from a FastqMultiRecordCollection
  */
 template <typename TSequencingSpec>
 inline void clear(FastqMultiRecordCollection<TSequencingSpec> & coll) {
-    clear(coll.multiRecords);
+    for (auto ptr : coll.multiRecordPtrs)
+        delete ptr;
+    clear(coll.multiRecordPtrs);
     coll.bcMap.clear();
-}
-
-/**
- * Compute number of FASTQ records that were added to a FastqMultiRecordCollection
- */
-template <typename TSequencingSpec>
-uint64_t computeNumberOfReads(FastqMultiRecordCollection<TSequencingSpec> const & coll) {
-    typedef String<FastqMultiRecord<TSequencingSpec> > TMRecString;
-    typedef typename Iterator<TMRecString const, Rooted>::Type TIterator;
-    uint64_t cnt = 0;
-    for (TIterator it = begin(coll.multiRecords); !atEnd(it); goNext(it))
-        cnt += it->ids.size();
-    return cnt;
 }
 
 /**
@@ -108,8 +111,8 @@ inline BarcodeStats getBarcodeStats(FastqMultiRecordCollection<SingleEnd> const 
         TSeqMap const & seqMap = bcIt->second;
         uint64_t seqMapSize = 0;
         for (TSeqMap::const_iterator seqIt = seqMap.begin(); seqIt != seqMap.end(); ++seqIt) {
-            cnt += coll.multiRecords[seqIt->second].ids.size();
-            if (coll.multiRecords[seqIt->second].ids.size() > 0)
+            cnt += getMultiRecord(coll, seqIt->second).ids.size();
+            if (getMultiRecord(coll, seqIt->second).ids.size() > 0)
                 ++seqMapSize;
         }
         if (cnt > 0) {
@@ -141,7 +144,7 @@ inline BarcodeStats getBarcodeStats(FastqMultiRecordCollection<PairedEnd> const 
         for (TFwSeqMap::const_iterator fwSeqIt = fwSeqMap.begin(); fwSeqIt != fwSeqMap.end(); ++fwSeqIt) {
             TRevSeqMap const & revSeqMap = fwSeqIt->second;
             for (TRevSeqMap::const_iterator revSeqIt = revSeqMap.begin(); revSeqIt!=revSeqMap.end(); ++revSeqIt) {
-                uint64_t s = coll.multiRecords[revSeqIt->second].ids.size();
+                uint64_t s = getMultiRecord(coll, revSeqIt->second).ids.size();
                 cnt += s;
                 if (s>0)
                     ++uCnt;
@@ -285,22 +288,22 @@ inline FastqMultiRecord<PairedEnd> newMultiRecord(FastqRecord<PairedEnd> const &
  */
 inline FastqMultiRecord<PairedEnd> & mapMultiRecord(FastqMultiRecordCollection<PairedEnd> & collection,
         FastqMultiRecord<PairedEnd> const & multiRecord) {
-    appendValue(collection.multiRecords, multiRecord);
+    appendValue(collection.multiRecordPtrs, new FastqMultiRecord<PairedEnd>(multiRecord));
     SEQAN_CHECK(collection.bcMap[multiRecord.bcSeq][multiRecord.fwSeq].find(multiRecord.revSeq)
             == collection.bcMap[multiRecord.bcSeq][multiRecord.fwSeq].end(), "Please report this error");
-    size_t new_idx = length(collection.multiRecords) - 1;
+    size_t new_idx = length(collection.multiRecordPtrs) - 1;
     collection.bcMap[multiRecord.bcSeq][multiRecord.fwSeq][multiRecord.revSeq] = new_idx;
-    return collection.multiRecords[new_idx];
+    return getMultiRecord(collection, new_idx);
 }
 
 inline FastqMultiRecord<SingleEnd> & mapMultiRecord(FastqMultiRecordCollection<SingleEnd> & collection,
         FastqMultiRecord<SingleEnd> const & multiRecord) {
-    appendValue(collection.multiRecords, multiRecord);
+    appendValue(collection.multiRecordPtrs, new FastqMultiRecord<SingleEnd>(multiRecord));
     SEQAN_CHECK(collection.bcMap[multiRecord.bcSeq].find(multiRecord.seq)
             == collection.bcMap[multiRecord.bcSeq].end(), "Please report this error");
-    size_t new_idx = length(collection.multiRecords) - 1;
+    size_t new_idx = length(collection.multiRecordPtrs) - 1;
     collection.bcMap[multiRecord.bcSeq][multiRecord.seq] = new_idx;
-    return collection.multiRecords[new_idx];
+    return getMultiRecord(collection, new_idx);
 }
 
 /**
@@ -353,7 +356,7 @@ FastqMultiRecord<TSequencingSpec> * findContainingMultiRecord(FastqMultiRecordCo
 
     uint64_t mRecId = findMultiRecordPosition(collection, record);
     if (mRecId != TColl::NO_MATCH) {
-        FastqMultiRecord<TSequencingSpec> & oldMultiRecord = collection.multiRecords[mRecId];
+        FastqMultiRecord<TSequencingSpec> & oldMultiRecord = getMultiRecord(collection, mRecId);
         TIds & ids = oldMultiRecord.ids;
         if (ids.find(record.id) != ids.end()) {
             return & oldMultiRecord;
@@ -381,9 +384,9 @@ FastqMultiRecord<TSequencingSpec> & mergeRecord(FastqMultiRecordCollection<TSequ
         updateMeanQualityValues(existingRec, rec);
         return existingRec;
     }
-    appendValue(collection.multiRecords, rec);
-    size_t newIdx = length(collection.multiRecords)-1;
-    FastqMultiRecord<TSequencingSpec> & newRec = collection.multiRecords[newIdx];
+    appendValue(collection.multiRecordPtrs, new FastqMultiRecord<TSequencingSpec>(rec));
+    size_t newIdx = length(collection.multiRecordPtrs)-1;
+    FastqMultiRecord<TSequencingSpec> & newRec = getMultiRecord(collection, newIdx);
     mapMultiRecord(collection, newRec);
     return newRec;
 }
@@ -396,7 +399,7 @@ inline void printCollection(FastqMultiRecordCollection<SingleEnd> const & coll)
         for (auto seqElem : bcMapElem.second)
         {
             std::cerr << "    " << seqElem.first << std::endl;
-            for (auto recId : coll.multiRecords[seqElem.second].ids)
+            for (auto recId : coll.multiRecordPtrs[seqElem.second]->ids)
             {
                 std::cerr << "            " << recId << '\n';
             }
@@ -415,7 +418,7 @@ inline void printCollection(FastqMultiRecordCollection<PairedEnd> const & coll)
             for (auto revSeqElem : fwSeqElem.second)
             {
                 std::cerr << "        " << revSeqElem.first << std::endl;
-                for (auto recId : coll.multiRecords[revSeqElem.second].ids)
+                for (auto recId : coll.multiRecordPtrs[revSeqElem.second]->ids)
                 {
                     std::cerr << "            " << recId << '\n';
                 }

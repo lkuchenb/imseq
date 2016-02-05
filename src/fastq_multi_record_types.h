@@ -99,7 +99,7 @@ struct FastqMultiRecordCollection<SingleEnd> {
     typedef std::map<FastqMultiRecord<SingleEnd>::TSequence, unsigned> TSeqMap;
     typedef std::map<FastqMultiRecord<SingleEnd>::TSequence, TSeqMap> TBcMap;
 
-    String<FastqMultiRecord<SingleEnd> > multiRecords;
+    String<FastqMultiRecord<SingleEnd>*> multiRecordPtrs;
     TBcMap bcMap;
 };
 
@@ -115,7 +115,7 @@ struct FastqMultiRecordCollection<PairedEnd> {
     typedef std::map<FastqMultiRecord<PairedEnd>::TSequence, TRevSeqMap> TFwSeqMap;
     typedef std::map<FastqMultiRecord<PairedEnd>::TSequence, TFwSeqMap> TBcMap;
 
-    String<FastqMultiRecord<PairedEnd> > multiRecords;
+    String<FastqMultiRecord<PairedEnd>*> multiRecordPtrs;
     TBcMap bcMap;
 };
 

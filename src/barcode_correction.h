@@ -87,7 +87,7 @@ inline bool splitBarcodeSeq(FastqRecord<PairedEnd> & rec, bool const barcodeVDJR
  * error rate from that
  */
 template<typename TSequence>
-bool belowErrRate(TSequence const & seqA, TSequence const & seqB, double maxErrRate)
+bool belowErrRate(TSequence const & seqA, TSequence const & seqB, double const   maxErrRate)
 {
     int seqLength  = std::max(length(seqA), length(seqB));
     int maxErrors  = static_cast<int>(std::floor(maxErrRate * static_cast<double>(seqLength)));
@@ -119,8 +119,8 @@ inline bool withinClusteringSpecs(FastqMultiRecord<PairedEnd> const & recA,
         FastqMultiRecord<PairedEnd> const & recB,
         CdrOptions const & options)
 {
-    return belowErrRate(recA.fwSeq, recB.fwSeq, options.bcClustMaxErrRate)
-        && belowErrRate(recA.revSeq, recB.revSeq, options.bcClustMaxErrRate);
+    return belowErrRate(recA.fwSeq, recB.fwSeq, options.bcClustMaxErrRate) &&
+        belowErrRate(recA.revSeq, recB.revSeq, options.bcClustMaxErrRate);
 }
 
 template<typename TSequencingSpec>
@@ -197,7 +197,9 @@ inline std::vector<FastqMultiRecord<SingleEnd>*> listFastqMultiRecords(FastqMult
     TSeqMap const & seqMap = bcIt->second;
     for (TSeqMap::const_iterator seqIt = seqMap.begin(); seqIt != seqMap.end(); ++seqIt)
     {
-        result.push_back(&(collection.multiRecords[seqIt->second]));
+        FastqMultiRecord<SingleEnd> & rec = getMultiRecord(collection, seqIt->second);
+        if (!rec.ids.empty())
+            result.push_back(&rec);
     }
     return result;
 }
@@ -224,7 +226,9 @@ inline std::vector<FastqMultiRecord<PairedEnd>*> listFastqMultiRecords(FastqMult
         TRevSeqMap const & revSeqMap = fwSeqIt->second;
         for (TRevSeqMap::const_iterator revSeqIt = revSeqMap.begin(); revSeqIt != revSeqMap.end(); ++revSeqIt)
         {
-            result.push_back(&(collection.multiRecords[revSeqIt->second]));
+            FastqMultiRecord<PairedEnd> & rec = getMultiRecord(collection, revSeqIt->second);
+            if (!rec.ids.empty())
+                result.push_back(&rec);
         }
     }
     return result;
@@ -269,6 +273,17 @@ bool hammingDistAtMost(TSequence const & seqA, TSequence const & seqB, unsigned 
     return true;
 }
 
+inline void printMultiRecord(FastqMultiRecord<SingleEnd> const &) {}
+
+
+inline void printMultiRecord(FastqMultiRecord<PairedEnd> const & rec)
+{
+    std::cerr << "===== FastqMultiRecord =====\nBC =" << rec.bcSeq << "\nFW =" << rec.fwSeq << "\nREV=" << rec.revSeq;
+    for (auto x : rec.ids)
+        std::cerr << "\n" << x;
+    std::cerr << "\n============================\n";
+}
+
 template <typename TSequencingSpec>
 void joinBarcodes(FastqMultiRecordCollection<TSequencingSpec> & collection,
         String<Dna5> const & bcSeqTarget,
@@ -289,6 +304,7 @@ void joinBarcodes(FastqMultiRecordCollection<TSequencingSpec> & collection,
     for (FastqMultiRecord<TSequencingSpec> * oldMultiRec : toReassign)
     {
         // Insert or update record corresponding to new barcode sequence
+//        printMultiRecord(*oldMultiRec);
         FastqMultiRecord<TSequencingSpec> copy = *oldMultiRec;
         copy.bcSeq = bcSeqTarget;
         mergeRecord(collection, copy);
