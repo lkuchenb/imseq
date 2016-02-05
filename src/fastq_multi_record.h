@@ -373,6 +373,13 @@ FastqMultiRecord<TSequencingSpec> * findContainingMultiRecord(FastqMultiRecordCo
     }
 }
 
+/**
+ * Merge a FastqMultiRecord into a FastqMultiRecordCollection. If there already
+ * exists a FastqMultiRecord with the very same sequence specifications, the
+ * mean qualities are updated and the FASTQ_IDS are added. If no
+ * FastqMultiRecord matches, the passed FastqMultiRecord is inserted and mapped
+ * accordingly.
+ */
 template<typename TSequencingSpec>
 FastqMultiRecord<TSequencingSpec> & mergeRecord(FastqMultiRecordCollection<TSequencingSpec> & collection,
         FastqMultiRecord<TSequencingSpec> const & rec)
@@ -382,6 +389,7 @@ FastqMultiRecord<TSequencingSpec> & mergeRecord(FastqMultiRecordCollection<TSequ
     {
         FastqMultiRecord<TSequencingSpec> & existingRec = *existingRecPtr;
         updateMeanQualityValues(existingRec, rec);
+        existingRec.ids.insert(rec.ids.begin(), rec.ids.end());
         return existingRec;
     }
     appendValue(collection.multiRecordPtrs, new FastqMultiRecord<TSequencingSpec>(rec));
