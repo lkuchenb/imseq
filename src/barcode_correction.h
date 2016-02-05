@@ -304,7 +304,6 @@ void joinBarcodes(FastqMultiRecordCollection<TSequencingSpec> & collection,
     for (FastqMultiRecord<TSequencingSpec> * oldMultiRec : toReassign)
     {
         // Insert or update record corresponding to new barcode sequence
-//        printMultiRecord(*oldMultiRec);
         FastqMultiRecord<TSequencingSpec> copy = *oldMultiRec;
         copy.bcSeq = bcSeqTarget;
         mergeRecord(collection, copy);
