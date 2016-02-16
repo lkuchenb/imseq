@@ -197,9 +197,9 @@ inline std::vector<FastqMultiRecord<SingleEnd>*> listFastqMultiRecords(FastqMult
     TSeqMap const & seqMap = bcIt->second;
     for (TSeqMap::const_iterator seqIt = seqMap.begin(); seqIt != seqMap.end(); ++seqIt)
     {
-        FastqMultiRecord<SingleEnd> & rec = getMultiRecord(collection, seqIt->second);
-        if (!rec.ids.empty())
-            result.push_back(&rec);
+        FastqMultiRecord<SingleEnd> * rec = collection.multiRecordPtrs[seqIt->second];
+        if (!rec->ids.empty())
+            result.push_back(rec);
     }
     return result;
 }
@@ -226,9 +226,9 @@ inline std::vector<FastqMultiRecord<PairedEnd>*> listFastqMultiRecords(FastqMult
         TRevSeqMap const & revSeqMap = fwSeqIt->second;
         for (TRevSeqMap::const_iterator revSeqIt = revSeqMap.begin(); revSeqIt != revSeqMap.end(); ++revSeqIt)
         {
-            FastqMultiRecord<PairedEnd> & rec = getMultiRecord(collection, revSeqIt->second);
-            if (!rec.ids.empty())
-                result.push_back(&rec);
+            FastqMultiRecord<PairedEnd> * rec = collection.multiRecordPtrs[revSeqIt->second];
+            if (!rec->ids.empty())
+                result.push_back(rec);
         }
     }
     return result;
