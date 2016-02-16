@@ -59,7 +59,7 @@ inline std::string toString(FastqMultiRecord<PairedEnd> const & rec)
  * entry with NULL and unmap it.
  */
 template <typename TMap, typename TSequencingSpec>
-void compact(TMap & idMap, String<FastqMultiRecord<TSequencingSpec>*> multiRecordPtrs)
+void compact(TMap & idMap, String<FastqMultiRecord<TSequencingSpec>*> & multiRecordPtrs)
 {
     typedef typename TMap::const_iterator TIter;
     String<TIter> iters;
