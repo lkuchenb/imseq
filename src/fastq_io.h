@@ -65,6 +65,72 @@ inline uint64_t computeFileSize(std::string const & path) {
 }
 
 /**
+ * Returns the longer sequence of a FastqRecord. Simply returns the sequence
+ * for a single end record, the longer sequence of the two for a paired end
+ * record.
+ *
+ * @special Single end
+ */
+inline FastqRecord<SingleEnd>::TSequence & longerSeq(FastqRecord<SingleEnd> & rec)
+{
+    return rec.seq;
+}
+
+/**
+ * @special Paired end
+ */
+inline FastqRecord<PairedEnd>::TSequence & longerSeq(FastqRecord<PairedEnd> & rec)
+{
+    if (length(rec.fwSeq) > length(rec.revSeq))
+        return rec.fwSeq;
+    return rec.revSeq;
+}
+
+/**
+ * Returns the longer sequence of a FastqRecord. Simply returns the sequence
+ * for a single end record, the longer sequence of the two for a paired end
+ * record.
+ *
+ * @special Single end
+ */
+inline FastqRecord<SingleEnd>::TSequence & shorterSeq(FastqRecord<SingleEnd> & rec)
+{
+    return rec.seq;
+}
+
+/**
+ * @special Paired end
+ */
+inline FastqRecord<PairedEnd>::TSequence & shorterSeq(FastqRecord<PairedEnd> & rec)
+{
+    if (length(rec.fwSeq) < length(rec.revSeq))
+        return rec.fwSeq;
+    return rec.revSeq;
+}
+
+/**
+ * Truncate the sequences of a FastqRecord
+ *
+ * @special Single end
+ */
+inline void truncate(FastqRecord<SingleEnd> & rec, size_t len)
+{
+    if (length(rec.seq) > len)
+        resize(rec.seq, len);
+}
+
+/**
+ * @special Paired end
+ */
+inline void truncate(FastqRecord<PairedEnd> & rec, size_t len)
+{
+    if (length(rec.fwSeq) > len)
+        resize(rec.fwSeq, len);
+    if (length(rec.revSeq) > len)
+        resize(rec.revSeq, len);
+}
+
+/**
  * Create a string representation of a FastqRecord
  * @special Paired end implementation
  */

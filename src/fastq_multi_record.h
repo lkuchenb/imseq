@@ -31,6 +31,7 @@
 #include "fastq_multi_record_types.h"
 #include "reject.h"
 #include "progress_bar.h"
+#include "input_information.h"
 
 using namespace seqan;
 
@@ -523,22 +524,37 @@ inline void printCollection(FastqMultiRecordCollection<PairedEnd> const & coll)
  */
 template <typename TSequencingSpec>
 bool readRecords(FastqMultiRecordCollection<TSequencingSpec> & collection,
+        InputInformation & ii,
         String<RejectEvent> & rejectEvents,
         SeqInputStreams<TSequencingSpec> & inStreams,
         CdrOptions const & options,
         unsigned count = 0)
 {
+    // ============================================================================
+    // Initialize InputInformation
+    // ============================================================================
+    ii.maxReadLength  = 0;
+    ii.minReadLength  = std::numeric_limits<unsigned>::max();
+    ii.totalReadCount = 0;
+
+    // ============================================================================
+    // Initialize Progress bar
+    // ============================================================================
+
     ProgressBar * progBar = NULL;
     if (inStreams.totalInBytes > 0)
         progBar = new ProgressBar(std::cerr, inStreams.totalInBytes, 100, "      ");
 
+    // ============================================================================
+    // Fill collection
+    // ============================================================================
+
     clear(collection);
     FastqRecord<TSequencingSpec> rec;
-    uint64_t complCount = 0;
     uint64_t blockBytes = 0;
     while (!inStreamsAtEnd(inStreams)) {
         bool tsfb = false;
-        if (count > 0 && complCount == count) {
+        if (count > 0 && ii.totalReadCount == count) {
             progBar->clear();
             return !inStreamsAtEnd(inStreams);
         }
@@ -551,16 +567,23 @@ bool readRecords(FastqMultiRecordCollection<TSequencingSpec> & collection,
         }
 
         // Count the read record
-        ++complCount;
+        ++ii.totalReadCount;
         blockBytes += approxSizeInBytes(rec);
-        if (complCount % 1234 == 0  && progBar != NULL) {
+        if (ii.totalReadCount % 1234 == 0  && progBar != NULL) {
             progBar->updateAndPrint(blockBytes);
             blockBytes = 0;
         }
 
+        // Truncate record if requested
+        if (options.trunkReads != 0)
+            truncate(rec, options.trunkReads);
         // FASTQ-Read QC
         RejectReason r = tsfb ? TOO_SHORT_FOR_BARCODE : qualityControl(rec, options);
         if (r == NONE) {
+            // Statistics
+            ii.maxReadLength = ii.maxReadLength > length(longerSeq(rec)) ? ii.maxReadLength : length(longerSeq(rec));
+            ii.minReadLength = ii.minReadLength < length(shorterSeq(rec)) ? ii.minReadLength : length(shorterSeq(rec));
+            // Insert into collection
             findContainingMultiRecord(collection, rec, true);
         } else {
             appendValue(rejectEvents, RejectEvent(rec.id, r));

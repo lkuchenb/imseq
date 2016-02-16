@@ -60,6 +60,7 @@
 #include "fastq_multi_record.h"
 #include "reject.h"
 #include "barcode_correction.h"
+#include "input_information.h"
 
 #ifdef __WITHCDR3THREADS__
 #include <mutex>
@@ -341,55 +342,6 @@ void resetStreams(SeqInputStreams<PairedEnd> & input) {
     open(input.revStream, input.revPath.c_str());
 }
 
-struct InputInformation {
-    uint64_t totalReadCount;
-    unsigned maxReadLength;
-    unsigned minReadLength;
-    InputInformation() : totalReadCount(0), maxReadLength(0), minReadLength(0) {}
-};
-
-template<typename TCdrInput>
-bool getInputInformation(InputInformation & inputInformation, TCdrInput & input) 
-{
-
-    std::cerr << "===== Preprocessing" << std::endl;
-
-    inputInformation.totalReadCount = 0;
-    inputInformation.maxReadLength = 0;
-    inputInformation.minReadLength = -1u;
-
-    seqan::SeqFileIn & seqStream = getInfoStream(input);
-
-    while (!atEnd(seqStream)) {
-        CharString id;
-        String<Dna5Q> seq;
-
-        try {
-            readRecord(id, seq, seqStream);
-        } catch (Exception const & e) {
-            std::cerr << "[ERR] Error reading FASTQ file: " << e.what() << std::endl;
-            return false;
-        }
-
-        unsigned rlen = length(seq);
-
-        if (rlen > inputInformation.maxReadLength)
-            inputInformation.maxReadLength = rlen;
-        if (rlen < inputInformation.minReadLength)
-            inputInformation.minReadLength = rlen;
-
-        ++inputInformation.totalReadCount;
-    }
-    
-    if (inputInformation.totalReadCount==0) {
-            std::cerr << "[ERR] Error reading FASTQ file!" << std::endl;
-            return false;
-    }
-
-    resetStreams(input);
-
-    return true;
-}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CLASS: ClusterPair
