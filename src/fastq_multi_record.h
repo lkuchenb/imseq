@@ -470,11 +470,7 @@ FastqMultiRecord<TSequencingSpec> & mergeRecord(FastqMultiRecordCollection<TSequ
         existingRec.ids.insert(rec.ids.begin(), rec.ids.end());
         return existingRec;
     }
-    appendValue(collection.multiRecordPtrs, new FastqMultiRecord<TSequencingSpec>(rec));
-    size_t newIdx = length(collection.multiRecordPtrs)-1;
-    FastqMultiRecord<TSequencingSpec> & newRec = getMultiRecord(collection, newIdx);
-    mapMultiRecord(collection, newRec);
-    return newRec;
+    return mapMultiRecord(collection, rec);
 }
 
 inline void printCollection(FastqMultiRecordCollection<SingleEnd> const & coll)
