@@ -28,6 +28,7 @@
 #include "unit_tests_imseq_barcode_correction.h"
 #include "unit_tests_imseq_fastq_io.h"
 #include "unit_tests_imseq_qc_basics.h"
+#include "unit_tests_imseq_fastq_multi_record.h"
 
 SEQAN_BEGIN_TESTSUITE(unit_tests_imseq)
 {
@@ -45,6 +46,10 @@ SEQAN_BEGIN_TESTSUITE(unit_tests_imseq)
     SEQAN_CALL_TEST(unit_tests_imseq_qc_basics_anyQualityBelow_string);
     SEQAN_CALL_TEST(unit_tests_imseq_qc_basics_averageQualityBelow_fastqRecordSingleEnd);
     SEQAN_CALL_TEST(unit_tests_imseq_qc_basics_averageQualityBelow_fastqRecordPairedEnd);
+
+    // unit_tests_imseq_fastq_multi_record.h
+    SEQAN_CALL_TEST(unit_tests_imseq_fastq_multi_record_findContainingMultiRecord_SingleEnd);
+    SEQAN_CALL_TEST(unit_tests_imseq_fastq_multi_record_findContainingMultiRecord_PairedEnd);
 }
 
 SEQAN_END_TESTSUITE
