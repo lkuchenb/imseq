@@ -53,8 +53,11 @@ struct FastqRecord {};
 template<>
 struct FastqRecord<PairedEnd> {
     typedef String<Dna5Q> TSequence;
-    TSequence   fwSeq, revSeq, bcSeq;
     CharString  id;
+    TSequence   fwSeq, revSeq, bcSeq;
+    FastqRecord<PairedEnd>() {}
+    FastqRecord<PairedEnd>(CharString const & _id, TSequence const & _fwSeq, TSequence const & _revSeq, TSequence const & _bcSeq) :
+        id(_id), fwSeq(_fwSeq), revSeq(_revSeq), bcSeq(_bcSeq) {}
 };
 
 /**
@@ -63,10 +66,12 @@ struct FastqRecord<PairedEnd> {
 template<>
 struct FastqRecord<SingleEnd> {
     typedef String<Dna5Q> TSequence;
-    TSequence   seq, bcSeq;
     CharString  id;
+    TSequence   seq, bcSeq;
 
-    FastqRecord<SingleEnd> () {}
+    FastqRecord<SingleEnd>() {}
+    FastqRecord<SingleEnd>(CharString const & _id, TSequence const & _seq, TSequence const & _bcSeq) :
+        id(_id), seq(_seq), bcSeq(_bcSeq) {}
     FastqRecord<SingleEnd> (FastqRecord<PairedEnd> const & pairRec)
     {
 	SEQAN_CHECK(empty(pairRec.fwSeq), "PLEASE REPORT THIS ERROR");

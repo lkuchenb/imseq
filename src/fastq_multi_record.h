@@ -53,6 +53,75 @@ inline std::string toString(FastqMultiRecord<PairedEnd> const & rec)
 }
 
 /**
+ * Compact a map mapping to multiRecordPtr-IDs. If the corresponding
+ * FastqMultiRecord is empty (no IDs), delete it, replace the pointer string
+ * entry with NULL and unmap it.
+ */
+template <typename TMap, typename TSequencingSpec>
+void compact(TMap & idMap, String<FastqMultiRecord<TSequencingSpec>*> multiRecordPtrs)
+{
+    typedef typename TMap::const_iterator TIter;
+    String<TIter> iters;
+    for (TIter iter = idMap.begin(); iter!=idMap.end(); ++iter)
+    {
+        if (multiRecordPtrs[iter->second]->ids.empty())
+        {
+            appendValue(iters, iter);
+            delete multiRecordPtrs[iter->second];
+            multiRecordPtrs[iter->second] = NULL;
+        }
+    }
+    for (TIter iter : iters)
+        idMap.erase(iter);
+}
+
+/**
+ * Compact a map that maps to a collection. If the collection is empty, erase
+ * the map entry
+ */
+template <typename TMap>
+void compact(TMap & map)
+{
+    typedef typename TMap::const_iterator TIter;
+    String<TIter> iters;
+    for (TIter iter = map.begin(); iter != map.end(); ++iter)
+        if (iter->second.empty())
+            appendValue(iters, iter);
+    for (TIter iter : iters)
+        map.erase(iter);
+}
+
+/**
+ * Compact a FastqMultiRecordCollection, i.e. free all FastqMultiRecords that
+ * have no members (ids is empty) and remove all mappings related to those.
+ * @special Single end
+ */
+inline void compact(FastqMultiRecordCollection<SingleEnd> & collection)
+{
+    typedef FastqMultiRecordCollection<SingleEnd> TColl;
+    typedef TColl::TBcMap TBcMap;
+    for (TBcMap::iterator bcIt = collection.bcMap.begin(); bcIt != collection.bcMap.end(); ++bcIt)
+        compact(bcIt->second, collection.multiRecordPtrs);
+    compact(collection.bcMap);
+}
+
+/**
+ * @special Paired end
+ */
+inline void compact(FastqMultiRecordCollection<PairedEnd> & collection)
+{
+    typedef FastqMultiRecordCollection<PairedEnd> TColl;
+    typedef TColl::TBcMap TBcMap;
+    typedef TColl::TFwSeqMap TFwSeqMap;
+    for (TBcMap::iterator bcIt = collection.bcMap.begin(); bcIt != collection.bcMap.end(); ++bcIt)
+        for (TFwSeqMap::iterator fwIt = bcIt->second.begin(); fwIt != bcIt->second.end(); ++fwIt)
+            compact(fwIt->second, collection.multiRecordPtrs);
+    for (TBcMap::iterator bcIt = collection.bcMap.begin(); bcIt != collection.bcMap.end(); ++bcIt)
+        compact(bcIt->second);
+    compact(collection.bcMap);
+}
+
+/**
  * Make a FastqRecord from a FastqMultiRecord, with an empty ID and default qualities
  */
 inline FastqRecord<SingleEnd> toFastqRecordSkel(FastqMultiRecord<SingleEnd> const & mRec)
@@ -98,7 +167,9 @@ inline void clear(FastqMultiRecordCollection<TSequencingSpec> & coll) {
 }
 
 /**
- * Compute how many sequences share the same barcode within a FastqMultiRecordCollection
+ * Generates BarcodeStats given a FastqMultiRecordCollection
+ *
+ * @special Single end
  */
 inline BarcodeStats getBarcodeStats(FastqMultiRecordCollection<SingleEnd> const & coll) {
     typedef typename FastqMultiRecordCollection<SingleEnd>::TBcMap TBcMap;
@@ -129,6 +200,8 @@ inline BarcodeStats getBarcodeStats(FastqMultiRecordCollection<SingleEnd> const 
 
 /**
  * Generates BarcodeStats given a FastqMultiRecordCollection
+ *
+ * @special Paired end
  */
 inline BarcodeStats getBarcodeStats(FastqMultiRecordCollection<PairedEnd> const & coll) {
     typedef typename FastqMultiRecordCollection<PairedEnd>::TBcMap TBcMap;
@@ -167,6 +240,7 @@ inline BarcodeStats getBarcodeStats(FastqMultiRecordCollection<PairedEnd> const 
  *
  * @returns Position of the corresponding FastqMultiRecord in the collection if
  *          there is a match, NO_MATCH otherwise.
+ * @special Single end
  */
 inline uint64_t findMultiRecordPosition(FastqMultiRecordCollection<SingleEnd> const & collection,
         FastqRecord<SingleEnd>::TSequence const & bcSeq,
@@ -182,6 +256,9 @@ inline uint64_t findMultiRecordPosition(FastqMultiRecordCollection<SingleEnd> co
     return seqSearch->second;
 }
 
+/**
+ * @special Paired end
+ */
 inline uint64_t findMultiRecordPosition(FastqMultiRecordCollection<PairedEnd> const & collection,
         FastqRecord<PairedEnd>::TSequence const & bcSeq,
         FastqRecord<PairedEnd>::TSequence const & fwSeq,
