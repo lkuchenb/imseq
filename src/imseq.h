@@ -1935,9 +1935,7 @@ std::mutex MUTEX_processReads;
 std::mutex PCR_ERR_STAT_MUTEX;
 #endif
 template <typename TQueryData, typename TGlobal>
-void analyseReads(
-        TCloneStore & cloneStore,     // [OUT] The clone store
-        TCacheStore * cacheStore,     // [I/O] The cache store
+String<AnalysisResult> analyseReads(
         TQueryData & queryData,       // [IN]  The query data with the reads to analyse
         TGlobal & global)             // [IN]  Global parameters and data
 {
@@ -1967,44 +1965,44 @@ void analyseReads(
     //          critical
     // ============================================================================
 
-    if (cacheStore != NULL) { // Caching is enabled
-        StringSet<TSequence> & vdjSeqs = getVDJReadSequences(queryData);
-#ifdef __WITHCDR3THREADS__
-        std::unique_lock<std::mutex> lock(CACHE_STORE_MUTEX);
-#endif
-        for (unsigned i = 0; i < nRecords(queryData); ++i) {
-            TCacheStore::const_iterator cr = cacheStore->find(getCacheStoreKey(queryData, i));
-            if (cr != cacheStore->end()) {
-                wasCached[i] = true;
-                // If V/J reference copy operations were performed on this sequence, the affected
-                // positions must have a maximum quality value
-                String<Dna5Q> seqCopy = vdjSeqs[i];
-                for (Iterator<String<unsigned> const,Rooted>::Type it = begin(cr->second.modifiedPositions); !atEnd(it); goNext(it))
-                    assignQualityValue(seqCopy[*it], global.options.maxQualityValue);
-                // The quality values of the cdr3 region must still be retrieved from the read
-                // sequence
-                Infix<String<Dna5Q> >::Type cdrInfix(seqCopy);
-                setBeginPosition(cdrInfix, cr->second.cdrBeginPos);
-                setEndPosition(cdrInfix, cr->second.cdrEndPos);
-                String<uint64_t> cdrQualities;
-                getQualityString(cdrQualities, cdrInfix);
-                results[i] = cr->second.analysisResult;
-                // The qualities are not contained in the cache record.
-                results[i].cdrQualities = cdrQualities;
-                // The barcode is not contained in the cache record.
-                if (length(results[i].cdrQualities)==0 and cr->second.analysisResult.reject==NONE) {
-                    std::cerr << "\nCACHE STORE ENTRY FOR SEQ '" << getCacheStoreKey(queryData, i) << "' with no reject and no quality string!" << std::endl;
-                    exit(2);
-                }
-            } else {
-                appendRecord(newQueries, queryData, i);
-                appendValue(newIndices, i);
-            }
-        }
-    } else {
+//    if (cacheStore != NULL) { // Caching is enabled
+//        StringSet<TSequence> & vdjSeqs = getVDJReadSequences(queryData);
+//#ifdef __WITHCDR3THREADS__
+//        std::unique_lock<std::mutex> lock(CACHE_STORE_MUTEX);
+//#endif
+//        for (unsigned i = 0; i < nRecords(queryData); ++i) {
+//            TCacheStore::const_iterator cr = cacheStore->find(getCacheStoreKey(queryData, i));
+//            if (cr != cacheStore->end()) {
+//                wasCached[i] = true;
+//                // If V/J reference copy operations were performed on this sequence, the affected
+//                // positions must have a maximum quality value
+//                String<Dna5Q> seqCopy = vdjSeqs[i];
+//                for (Iterator<String<unsigned> const,Rooted>::Type it = begin(cr->second.modifiedPositions); !atEnd(it); goNext(it))
+//                    assignQualityValue(seqCopy[*it], global.options.maxQualityValue);
+//                // The quality values of the cdr3 region must still be retrieved from the read
+//                // sequence
+//                Infix<String<Dna5Q> >::Type cdrInfix(seqCopy);
+//                setBeginPosition(cdrInfix, cr->second.cdrBeginPos);
+//                setEndPosition(cdrInfix, cr->second.cdrEndPos);
+//                String<uint64_t> cdrQualities;
+//                getQualityString(cdrQualities, cdrInfix);
+//                results[i] = cr->second.analysisResult;
+//                // The qualities are not contained in the cache record.
+//                results[i].cdrQualities = cdrQualities;
+//                // The barcode is not contained in the cache record.
+//                if (length(results[i].cdrQualities)==0 and cr->second.analysisResult.reject==NONE) {
+//                    std::cerr << "\nCACHE STORE ENTRY FOR SEQ '" << getCacheStoreKey(queryData, i) << "' with no reject and no quality string!" << std::endl;
+//                    exit(2);
+//                }
+//            } else {
+//                appendRecord(newQueries, queryData, i);
+//                appendValue(newIndices, i);
+//            }
+//        }
+//    } else {
         resize(newIndices, nRecords(queryData));
         for (unsigned i=0; i<nRecords(queryData); ++i) newIndices[i]=i;
-    }
+//    }
 
     // ============================================================================
     // Find the best overlap alignments for the V and J segments
@@ -2023,7 +2021,7 @@ void analyseReads(
     {
         for (unsigned x = 0; x < length(leftMatches); ++x)
         {
-            std::cerr << "\n\n========= V ALIGNMENTS FOR READ " << newQueries.ids[x] << " ===========\n\n";
+            std::cerr << "\n\n========= V ALIGNMENTS FOR READ " << x << " ===========\n\n";
             for (auto y : leftMatches[x])
             {
                 int overlapLength = length(row(y.align,1));
@@ -2043,7 +2041,7 @@ void analyseReads(
     {
         for (unsigned x = 0; x < length(rightMatches); ++x)
         {
-            std::cerr << "\n\n========= J ALIGNMENTS FOR READ " << newQueries.ids[x] << " ===========\n\n";
+            std::cerr << "\n\n========= J ALIGNMENTS FOR READ " << x << " ===========\n\n";
             for (auto y : rightMatches[x])
             {
                 std::cerr << getDescriptor(global.references.rightMeta[y.db]) << " (score=" << y.score << ")\n" << y.align;
@@ -2080,7 +2078,7 @@ void analyseReads(
         // ============================================================================
 
         if (length(leftMatches[readId]) == 0 || length(rightMatches[readId]) == 0) {
-            results[outerReadId] = rejectRead(getCacheStoreKey(queryData, outerReadId), SEGMENT_MATCH_FAILED, cacheStore);
+            results[outerReadId] = rejectRead(getCacheStoreKey(queryData, outerReadId), SEGMENT_MATCH_FAILED, NULL);
             continue;
         }
 
@@ -2094,7 +2092,7 @@ void analyseReads(
         {
             RejectReason reject = findCDR3Region(cdrInfix, leftMatches[readId], rightMatches[readId], global);
             if (reject) {
-                results[outerReadId] = rejectRead(getCacheStoreKey(queryData, outerReadId), reject, cacheStore);
+                results[outerReadId] = rejectRead(getCacheStoreKey(queryData, outerReadId), reject, NULL);
                 continue;
             }
         }
@@ -2110,12 +2108,12 @@ void analyseReads(
         cdrBeginEndPairs[outerReadId] = std::make_pair(cdrBegin, cdrEnd);
 
         if (cdrBegin >= cdrEnd) {
-            results[outerReadId] = rejectRead(getCacheStoreKey(queryData, outerReadId), BROKEN_CDR_BOUNDARIES, cacheStore);
+            results[outerReadId] = rejectRead(getCacheStoreKey(queryData, outerReadId), BROKEN_CDR_BOUNDARIES, NULL);
             continue;
         }
 
         if ((cdrEnd-cdrBegin)%3 != 0) {
-            results[outerReadId] = rejectRead(getCacheStoreKey(queryData, outerReadId), OUT_OF_READING_FRAME, cacheStore);
+            results[outerReadId] = rejectRead(getCacheStoreKey(queryData, outerReadId), OUT_OF_READING_FRAME, NULL);
             continue;
         }
 
@@ -2132,7 +2130,7 @@ void analyseReads(
 
         for (Iterator<String<AminoAcid>, Rooted>::Type it = begin(aaCdr3); !atEnd(it); goNext(it))
             if (*it == convert<AminoAcid>('X')) {
-                results[outerReadId] = rejectRead(getCacheStoreKey(queryData, outerReadId), NONSENSE_IN_CDR3, cacheStore);
+                results[outerReadId] = rejectRead(getCacheStoreKey(queryData, outerReadId), NONSENSE_IN_CDR3, NULL);
                 nonsense = true;
                 break;
             }
@@ -2250,113 +2248,143 @@ void analyseReads(
     std::unique_lock<std::mutex> lock(CACHE_STORE_MUTEX);
 #endif
 
-    for (Iterator<TResults, Rooted>::Type lcm = begin(results); !atEnd(lcm); goNext(lcm)) {
-        unsigned const & readId = position(lcm);
-        AnalysisResult const & ar = *lcm;
-        if (!ar.reject) {
-            // Increase the counter for this clone
-            countNewClone(cloneStore, ar.clone, ar.cdrQualities);
-            // Output the detailed per-read information if requested
-            if (global.outFiles._fullOutStream != NULL) {
-                *global.outFiles._fullOutStream << getReadIds(queryData)[readId];
-                *global.outFiles._fullOutStream << ar.fullOutSuffix;
-            }
-        } else {
-            // Output the reject log information if requested
-            if (__rejectLog != NULL) *__rejectLog << getReadIds(queryData)[readId] << '\t' << _CDRREJECTS[ar.reject] << std::endl;
-        }
-        // Check if caching is enabled and store the result if so. Rejects due to quality issues are
-        // not cached, as they do not solely depend on the sequence of the read.
-        if (cacheStore!=NULL && !wasCached[readId] && ar.reject!=AVERAGE_QUAL_FAIL && ar.reject!=LOW_QUALITY_BASE_IN_CDR) {
-            CacheEntry ce(ar, cdrBeginEndPairs[readId].first, cdrBeginEndPairs[readId].second, modifiedPositions[readId]);
-            std::pair<TCacheStore::iterator,bool> prev = cacheStore->insert( std::make_pair(getCacheStoreKey(queryData, readId), ce ) );
-            // Safety check - if the result was already cached before (because the same sequence
-            // occurred in a group of reads that was analyzed together) the cached result must be
-            // identical to the newly computed result.
-            if (!prev.second && prev.first->second != ce) {
-                std::cerr << "=ERR= Cache consistency error for an accepted read." << std::endl;
-                std::cerr << "\n\n== Previous cache entry\nKey\t" << prev.first->first << "\nValue:\t";
-                std::cerr << toString(prev.first->second) << std::endl;
-                std::cerr << "\n\n== New cache entry\nKey\t" << getCacheStoreKey(queryData, readId) << "\nValue:\t";
-                std::cerr << toString(ce) << std::endl;
-                exit(1);
-            } 
-        }
-    }
+//    for (Iterator<TResults, Rooted>::Type lcm = begin(results); !atEnd(lcm); goNext(lcm)) {
+//        unsigned const & readId = position(lcm);
+//        AnalysisResult const & ar = *lcm;
+//        if (!ar.reject) {
+//            // Increase the counter for this clone
+//            countNewClone(cloneStore, ar.clone, ar.cdrQualities);
+//            // Output the detailed per-read information if requested
+//            if (global.outFiles._fullOutStream != NULL) {
+//                *global.outFiles._fullOutStream << getReadIds(queryData)[readId];
+//                *global.outFiles._fullOutStream << ar.fullOutSuffix;
+//            }
+//        } else {
+//            // Output the reject log information if requested
+//            if (__rejectLog != NULL) *__rejectLog << getReadIds(queryData)[readId] << '\t' << _CDRREJECTS[ar.reject] << std::endl;
+//        }
+//        // Check if caching is enabled and store the result if so. Rejects due to quality issues are
+//        // not cached, as they do not solely depend on the sequence of the read.
+//        if (cacheStore!=NULL && !wasCached[readId] && ar.reject!=AVERAGE_QUAL_FAIL && ar.reject!=LOW_QUALITY_BASE_IN_CDR) {
+//            CacheEntry ce(ar, cdrBeginEndPairs[readId].first, cdrBeginEndPairs[readId].second, modifiedPositions[readId]);
+//            std::pair<TCacheStore::iterator,bool> prev = cacheStore->insert( std::make_pair(getCacheStoreKey(queryData, readId), ce ) );
+//            // Safety check - if the result was already cached before (because the same sequence
+//            // occurred in a group of reads that was analyzed together) the cached result must be
+//            // identical to the newly computed result.
+//            if (!prev.second && prev.first->second != ce) {
+//                std::cerr << "=ERR= Cache consistency error for an accepted read." << std::endl;
+//                std::cerr << "\n\n== Previous cache entry\nKey\t" << prev.first->first << "\nValue:\t";
+//                std::cerr << toString(prev.first->second) << std::endl;
+//                std::cerr << "\n\n== New cache entry\nKey\t" << getCacheStoreKey(queryData, readId) << "\nValue:\t";
+//                std::cerr << toString(ce) << std::endl;
+//                exit(1);
+//            } 
+//        }
+//    }
+    return results;
 }
 
-void analyseReads(
-        TCloneStore & cloneStore,                       // [OUT] The clone store
-        TCacheStore * cacheStore,                       // [I/O] The cache store
+String<AnalysisResult> analyseReads(
         QueryDataCollection<SingleEnd> & qDatCol,       // [IN]  The query data collection with the reads to analyse
         CdrGlobalData<SingleEnd> & global)              // [IN]  Global parameters and data
 {
-    analyseReads(cloneStore, cacheStore, qDatCol.queryData, global);
+    return analyseReads(qDatCol.queryData, global);
 }
 
-void analyseReads(
-        TCloneStore & cloneStore,                       // [OUT] The clone store
-        TCacheStore * cacheStore,                       // [I/O] The cache store
+String<AnalysisResult> analyseReads(
         QueryDataCollection<PairedEnd> & qDatCol,       // [IN]  The query data collection with the reads to analyse
         CdrGlobalData<PairedEnd> & global)              // [IN]  Global parameters and data
 {
     // Analyse the paired end data
-    analyseReads(cloneStore, cacheStore, qDatCol.pairedQueryData, global);
+    String<AnalysisResult> res = analyseReads(qDatCol.pairedQueryData, global);
     // Analyse the single end data
-    analyseReads(cloneStore, cacheStore, qDatCol.singleQueryData, global);
+    append(res, analyseReads(qDatCol.singleQueryData, global));
+    return res;
 }
 
-template<typename TGlobal>
+#ifdef __WITHCDR3THREADS__
+std::mutex MUTEX_take_from_multicollection;
+std::mutex MUTEX_write_global_results;
+#endif
+template<typename TSeqSpec>
 void processReads(
-        TCloneStore& clusterStore,  // OUT: The map of clone counts to insert the results into 
+        String<AnalysisResult> & results,  // OUT: The map of clone counts to insert the results into
         ProgressBar& progBar,       //  IN: The ProgressBar object to report to
-        TCacheStore* cacheStore,    //  IN: The cache of previously mapped reads
-        TGlobal & global)           //  IN: The user specified parameters
+        FastqMultiRecordCollection<TSeqSpec> & collection,
+        size_t & processed,
+        CdrGlobalData<TSeqSpec> & global)           //  IN: The user specified parameters
 {
-    typedef typename Sequencing<TGlobal>::Type                          TSeqType;
-    typedef QueryDataCollection<TSeqType>                                         TQueryDataCollection;
+    typedef QueryDataCollection<TSeqSpec>  TQueryDataCollection;
     while (true) { // Breaks when no more reads can be read from the input streams
 
         // ============================================================================
-        // Retrieve and pre-process sequences from the record reader
+        // Extract block of records for analysis
         // ============================================================================
 
-        TQueryDataCollection queryDataCollection;
+        String<FastqMultiRecord<TSeqSpec>*> todo;
+        TQueryDataCollection qdataColl;
+        size_t first_idx;
+        { // Scope for lock
+#ifdef __WITHCDR3THREADS__
+            std::unique_lock<std::mutex> lock(MUTEX_take_from_multicollection);
+#endif
+            // Detect, how man items have to be processed
+            size_t n_items = std::min<size_t>(length(collection.multiRecordPtrs) - processed, global.options.maxBlockSize);
 
-        int rejected = readBlockOfHighQualityRecords(queryDataCollection, global.input, global.options);
-        if (rejected < 0)
-            return;
-        progBar.updateAndPrint(static_cast<unsigned>(rejected));
+            // Break loop if we are finished
+            if (n_items == 0)
+                break;
 
-        unsigned accepted = nRecords(queryDataCollection);
+            // Store items that have to be processed
+            first_idx = processed;
+            for (size_t i = 0; i < n_items; ++i) {
+                appendValue(todo, collection.multiRecordPtrs[i+processed]);
+            }
+            qdataColl = buildQDCollection(todo);
+            processed += n_items;
+        }
 
-        analyseReads(clusterStore, cacheStore, queryDataCollection, global);
+        // ============================================================================
+        // Perform the actual analysis
+        // ============================================================================
 
-        progBar.updateAndPrint(accepted);
+        String<AnalysisResult> results_block = analyseReads(qdataColl, global);
+        progBar.updateAndPrint(length(todo));
+
+        // ============================================================================
+        // Process Analysis results
+        // ============================================================================
+
+        {
+#ifdef __WITHCDR3THREADS__
+            std::unique_lock<std::mutex> lock(MUTEX_write_global_results);
+#endif
+            for (AnalysisResult const & ar : results_block)
+            {
+                results[first_idx++] = ar;
+            }
+        }
+
+
     }
 }
 
-template<typename TGlobal>
+template<typename TSequencingSpec>
 bool runCDR3Analysis(
-        TCloneStore& cloneStore,    // OUT: The map of clone counts to insert the results into 
-        TGlobal & global,           //  IN: The user specified parameters
+        TCloneStore& cloneStore,    // OUT: The map of clone counts to insert the results into
+        String<RejectEvent> & rejectEvents,
+        FastqMultiRecordCollection<TSequencingSpec> & collection,
+        CdrGlobalData<TSequencingSpec> & global,           //  IN: The user specified parameters
         uint64_t const readCount)   //  IN: The total number of reads
 {
+
+    clear(rejectEvents);
 
     // ============================================================================
     // Status message
     // ============================================================================
 
     std::cerr << "===== Gene segment and CDR analysis" << std::endl;
-
-    // ============================================================================
-    // If requested so by the user, create a new cache store
-    // ============================================================================
-
-    TCacheStore* cacheStore = NULL;
-    if (global.options.cacheMatches) {
-        cacheStore = new TCacheStore();
-    }
 
     // ============================================================================
     // Initialize the status indicator within the command name if requested by the
@@ -2368,18 +2396,21 @@ bool runCDR3Analysis(
 
     // ============================================================================
     // Launch the analysis. processReads() reads a block of reads and analyses it.
-    // If supported and requested by the user, multiple threads call 
+    // If supported and requested by the user, multiple threads call
     // processReads(), the function and therefore each thread terminates when the
     // SequenceStream is exhausted, i.e. no more reads are available.
     // ============================================================================
 
+    size_t processed = 0;
+    String<AnalysisResult> results;
+    resize(results, length(collection.multiRecordPtrs));
 #ifdef __WITHCDR3THREADS__
     std::vector<std::thread> threads;
     for (int w=0; w < global.options.jobs; ++w)
         threads.push_back(std::thread(
                 [&]() {
 #endif
-                processReads(cloneStore, progBar, cacheStore, global);
+                processReads(results , progBar, collection, processed, global);
 #ifdef __WITHCDR3THREADS__
                 }
                 ));
@@ -2387,6 +2418,30 @@ bool runCDR3Analysis(
         t.join();
 #endif
     progBar.clear();
+
+    // ============================================================================
+    // Add results to clonestore
+    // ============================================================================
+
+    for (size_t i = 0; i<length(results); ++i)
+    {
+        AnalysisResult const & ar = results[i];
+        FastqMultiRecord<TSequencingSpec> const & record = *(collection.multiRecordPtrs[i]);
+        if (!ar.reject) {
+            // Increase the counter for this clone
+            countNewClone(cloneStore, ar.clone, ar.cdrQualities);
+            // Output the detailed per-read information if requested
+//            if (global.outFiles._fullOutStream != NULL) {
+//                *global.outFiles._fullOutStream << getReadIds(queryData)[readId];
+//                *global.outFiles._fullOutStream << ar.fullOutSuffix;
+//            }
+        } else {
+            for (CharString const & id : record.ids)
+                appendValue(rejectEvents, RejectEvent(id, ar.reject));
+            // Output the reject log information if requested
+//            if (__rejectLog != NULL) *__rejectLog << getReadIds(queryData)[readId] << '\t' << _CDRREJECTS[ar.reject] << std::endl;
+        }
+    }
 
     // ============================================================================
     // Output info about how many of the reads were successfully analyzed
@@ -2398,43 +2453,21 @@ bool runCDR3Analysis(
     std::string s = cloneCount == 1 ? "clone" : "clones";
     std::cerr << "  |-- " << cloneCount << " " << s << " could be identified." << std::endl;
 
-    // ============================================================================
-    // Free the memory occupied by the cache store
-    // ============================================================================
-
-    if (cacheStore != NULL) {
-        delete cacheStore;
-        std::cerr << "  |-- Purged the result cache." << std::endl;
-    }
-
-
     return true;
 }
 
 
-template<typename TGlobal>
-int runAnalysis(TGlobal & global, InputInformation const & inputInformation) {
+template<typename TSequencingSpec>
+int runAnalysis(CdrGlobalData<TSequencingSpec> & global,
+        InputInformation const & inputInformation,
+        FastqMultiRecordCollection<TSequencingSpec> & collection)
+{
 
     CdrOptions const & options = global.options;
-
-
-    // ============================================================================
-    // Output info about references 
-    // ============================================================================
-
-    std::cerr << "  |-- Read " << length(global.references.leftSegs) << " left side segments." << std::endl;
-    std::cerr << "  |-- Read " << length(global.references.rightSegs) << " right side segments." << std::endl;
 
     // ============================================================================
     // First pass over FASTQ input to determine read count and max length
     // ============================================================================
-
-    uint64_t const & totalReadCount = inputInformation.totalReadCount;
-    unsigned const & maxReadLength = inputInformation.maxReadLength;
-
-    std::cerr << "  |-- " << totalReadCount << " reads in the input file" << std::endl;
-    std::cerr << "  |-- Maximum read length: " << maxReadLength << std::endl;
-
 
     std::ofstream *__aminoOutStream, *__nucOutStream;
 
@@ -2454,12 +2487,6 @@ int runAnalysis(TGlobal & global, InputInformation const & inputInformation) {
 
     POINTERSTREAM(global.outFiles._fullOutStream) << "seqId\tcdrBegin\tcdrEnd\tleftMatches\tleftErrPos\tleftMatchLen\trightMatches\trightErrPos\trightMatchLen\tcdrNucSeq\tcdrAASeq" << std::endl;
 
-    if (global.outFiles.clusterEvalLog.good()) {
-        global.outFiles.clusterEvalLog.getStream() << "negPos\tisTrue\tnegReason\tminCount\tmajCount\tassignFactor\tminBC\tmajBC\tminV\tminJ\tmajV\tmajJ\tminCDR\tmajCDR\n";
-        std::cerr << "  |xx WROTE THAT!\n";
-    }
-
-
     // ============================================================================
     // Perform the analysis
     // ============================================================================
@@ -2469,7 +2496,8 @@ int runAnalysis(TGlobal & global, InputInformation const & inputInformation) {
 
     std::clock_t beforeAnalysis = std::clock();
 
-    if (!runCDR3Analysis(nucCloneStore, global, totalReadCount))
+    String<RejectEvent> rejectEvents;
+    if (!runCDR3Analysis(nucCloneStore, rejectEvents, collection, global, inputInformation.totalReadCount))
         exit(1);
 
     std::cerr << "  |-- Required cpu time: " << formatSeconds(double(std::clock() - beforeAnalysis) / CLOCKS_PER_SEC) << std::endl;;
@@ -2572,13 +2600,111 @@ void autoTuneVSCFLength(CdrOptions & options, unsigned minReadLength) {
     }
 }
 
+
+template <typename TStream>
+void printStats(TStream & stream, String<RejectEvent> const & rejectEvents,
+        InputInformation const & ii,
+        BarcodeStats const & stats)
+{
+    stream <<
+        "  |   ...... Number of reads read: " << ii.totalReadCount << '\n' <<
+        "  |   .................. Rejected: " << length(rejectEvents) << '\n' <<
+        "  |   .. Max read length (passed): " << ii.maxReadLength << '\n' << 
+        "  |   .. Min read length (passed): " << ii.minReadLength << '\n' <<
+        "  |   Number of unique read pairs: " << stats.nTotalUniqueReads << '\n';
+}
+
+inline void printPerBarcodeStats(BarcodeStats const & stats)
+{
+    std::cout << "Barcode\tnReads\tnUniqueReads\n";
+    for (unsigned i=0; i<length(stats.bcSeqs); ++i)
+        std::cout << stats.bcSeqs[i] << "\t" << stats.nReads[i] << "\t" << stats.nUniqueReads[i] << std::endl;
+    std::cerr << "      " << stats.nTotalReads << " read pairs (" << stats.nTotalUniqueReads << " unique)" << std::endl;
+}
+
 template <typename TSequencingSpec>
-int main_generic(InputInformation & inputInformation, CdrGlobalData<TSequencingSpec> & global, CdrOptions & options, CdrReferences & references) {
-    if (!getInputInformation(inputInformation, global.input))
-        return 1;
+int main_generic(CdrGlobalData<TSequencingSpec> & global, CdrOptions & options, CdrReferences & references) {
+
+    ignoreUnusedVariableWarning(references);
+
+    // ============================================================================
+    // READ FASTQ FILES
+    // ============================================================================
+
+    std::cerr << "===== PROCESSING INPUT FILES\n";
+    // Target data structures
+    InputInformation inputInformation;
+    FastqMultiRecordCollection<TSequencingSpec> collection;
+    String<RejectEvent> rejectEvents;
+    // Read data
+    readRecords(collection, inputInformation, rejectEvents, global.input, global.options);
+    // Print information
+    BarcodeStats stats = getBarcodeStats(collection);
+    printStats(std::cerr, rejectEvents, inputInformation, stats);
+
+    // ============================================================================
+    // TUNE V-SCF LENGTH, READ REFERENCE SEGMENT SEQUENCES
+    // ============================================================================
+
     autoTuneVSCFLength(options, inputInformation.minReadLength);
     readAndPreprocessReferences(references, global.options);
-    return runAnalysis(global, inputInformation);
+
+    std::cerr << "  |-- Read " << length(global.references.leftSegs) << " reference V segments." << std::endl;
+    std::cerr << "  |-- Read " << length(global.references.rightSegs) << " reference J segments." << std::endl;
+
+
+    // ============================================================================
+    // COLLAPSE SIMILAR BARCODES
+    // ============================================================================
+
+    std::cerr << "===== BARCODE CORRECTION\n";
+    std::cerr << "  |-- Joining similar barcodes (" << options.barcodeMaxError << " errors allowed)" << std::endl;
+
+    clusterBarcodeSequences(collection, options);
+    stats = getBarcodeStats(collection);
+    std::cerr <<
+        "  |   ...... Number of reads read: " << stats.nTotalReads << '\n' <<
+        "  |   Number of unique read pairs: " << stats.nTotalUniqueReads << '\n';
+    compact(collection);
+
+    // ============================================================================
+    // CORRECT READS BASED ON BARCODES
+    // ============================================================================
+
+    std::cerr << "  |-- Performing barcode correction" << std::endl;
+    barcodeCorrection(collection, options);
+    stats = getBarcodeStats(collection);
+    std::cerr <<
+        "  |   ...... Number of reads read: " << stats.nTotalReads << '\n' <<
+        "  |   Number of unique read pairs: " << stats.nTotalUniqueReads << '\n';
+    compact(collection);
+
+    // ============================================================================
+    // DROP BARCODE INFORMATION
+    // ============================================================================
+
+    FastqMultiRecordCollection<TSequencingSpec> noBcCollection;
+
+    for (FastqMultiRecord<TSequencingSpec> * const recPtr : collection.multiRecordPtrs)
+    {
+        if (recPtr == NULL || recPtr->ids.empty())
+            continue;
+        FastqMultiRecord<TSequencingSpec> recCopy = *recPtr;
+        recCopy.bcSeq = "";
+        mergeRecord(noBcCollection, recCopy);
+    }
+
+    std::cerr << "  |-- Dropping barcode information" << std::endl;
+    stats = getBarcodeStats(noBcCollection);
+    std::cerr <<
+        "      ...... Number of reads read: " << stats.nTotalReads << '\n' <<
+        "      Number of unique read pairs: " << stats.nTotalUniqueReads << '\n';
+
+    // ============================================================================
+    // RUN THE CLONOTYING ANALYSIS
+    // ============================================================================
+
+    return runAnalysis(global, inputInformation, noBcCollection);
 }
 
 #endif  // #ifndef SANDBOX_LKUCHENB_APPS_CDR3FINDER_CDR3FINDER_H_

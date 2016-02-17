@@ -50,14 +50,12 @@ struct QueryData {
 
 template<>
 struct QueryData<SingleEnd> : QueryData<void> {
-    StringSet<TQueryDataSequence>       seqs, bcSeqs;
-    StringSet<CharString>               ids;
+    StringSet<TQueryDataSequence>       seqs;
 };
 
 template<>
 struct QueryData<PairedEnd> : QueryData<void> {
-    StringSet<TQueryDataSequence>       fwSeqs, revSeqs, bcSeqs;
-    StringSet<CharString>               ids;
+    StringSet<TQueryDataSequence>       fwSeqs, revSeqs;
 };
 
 template<typename TSequencingSpec>

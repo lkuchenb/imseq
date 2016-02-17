@@ -32,6 +32,7 @@
 #include "reject.h"
 #include "progress_bar.h"
 #include "input_information.h"
+#include "sequence_data_types.h"
 
 using namespace seqan;
 
@@ -588,6 +589,38 @@ bool readRecords(FastqMultiRecordCollection<TSequencingSpec> & collection,
     progBar->clear();
     delete progBar;
     return false;
+}
+
+/**
+ * Build a QueryDataCollection from a String of FastqMultiRecords
+ *
+ * @special Single end
+ */
+inline QueryDataCollection<SingleEnd> buildQDCollection(String<FastqMultiRecord<SingleEnd>*> const & ptrs)
+{
+    QueryDataCollection<SingleEnd> qdc;
+    for (FastqMultiRecord<SingleEnd> const * ptr : ptrs)
+        appendValue(qdc.queryData.seqs, ptr->seq);
+    return qdc;
+}
+
+/**
+ * @special Paired end
+ */
+inline QueryDataCollection<PairedEnd> buildQDCollection(String<FastqMultiRecord<PairedEnd>*> const & ptrs)
+{
+    QueryDataCollection<PairedEnd> qdc;
+    for (FastqMultiRecord<PairedEnd> const * ptr : ptrs)
+    {
+        if (!empty(ptr->fwSeq))
+        {
+            appendValue(qdc.pairedQueryData.fwSeqs, ptr->fwSeq);
+            appendValue(qdc.pairedQueryData.revSeqs, ptr->revSeq);
+        } else {
+            appendValue(qdc.singleQueryData.seqs, ptr->revSeq);
+        }
+    }
+    return qdc;
 }
 
 #endif

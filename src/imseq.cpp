@@ -86,6 +86,7 @@ int main(int argc, char ** argv)
     // ============================================================================
 
     std::cerr << "===== Program call\n";
+    std::cerr << "      imseq " << IMSEQ_VERSION::STRING << '\n';
     for (int i=0; i<argc; ++i)
         std::cerr << argv[i] << ' ';
     std::cerr << std::endl;
@@ -93,8 +94,6 @@ int main(int argc, char ** argv)
     // ============================================================================
     // Call the workflow
     // ============================================================================
-
-    InputInformation inputInformation;
 
     if (options.pairedEnd)
     {
@@ -108,7 +107,7 @@ int main(int argc, char ** argv)
                 is,
                 outFiles
                 );
-        return main_generic(inputInformation, global, options, references);
+        return main_generic(global, options, references);
     } else {
         SeqInputStreams<SingleEnd> is(
                 inFilePaths[0],
@@ -119,7 +118,7 @@ int main(int argc, char ** argv)
                 is,
                 outFiles
                 );
-        return main_generic(inputInformation, global, options, references);
+        return main_generic(global, options, references);
     }
 
 }

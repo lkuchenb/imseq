@@ -52,59 +52,55 @@ inline unsigned nRecords(QueryDataCollection<PairedEnd> const & qDatCol) {
     return nRecords(qDatCol.singleQueryData) + nRecords(qDatCol.pairedQueryData);
 }
 
-inline void appendRecord(QueryData<SingleEnd> & target, QueryData<SingleEnd> const & source, unsigned pos) {
-    appendValue(target.seqs, source.seqs[pos]);
-    appendValue(target.bcSeqs, source.bcSeqs[pos]);
-    appendValue(target.ids, source.ids[pos]);
-}
-
-inline void appendRecord(QueryData<PairedEnd> & target, QueryData<PairedEnd> const & source, unsigned pos) {
-    appendValue(target.fwSeqs, source.fwSeqs[pos]);
-    appendValue(target.revSeqs, source.revSeqs[pos]);
-    appendValue(target.bcSeqs, source.bcSeqs[pos]);
-    appendValue(target.ids, source.ids[pos]);
-}
-
+//inline void appendRecord(QueryData<SingleEnd> & target, QueryData<SingleEnd> const & source, unsigned pos) {
+//    appendValue(target.seqs, source.seqs[pos]);
+//    appendValue(target.bcSeqs, source.bcSeqs[pos]);
+//    appendValue(target.ids, source.ids[pos]);
+//}
+//
+//inline void appendRecord(QueryData<PairedEnd> & target, QueryData<PairedEnd> const & source, unsigned pos) {
+//    appendValue(target.fwSeqs, source.fwSeqs[pos]);
+//    appendValue(target.revSeqs, source.revSeqs[pos]);
+//    appendValue(target.bcSeqs, source.bcSeqs[pos]);
+//    appendValue(target.ids, source.ids[pos]);
+//}
+//
 inline void clear(QueryData<SingleEnd> & qData) {
     clear(qData.seqs);
-    clear(qData.bcSeqs);
-    clear(qData.ids);
 }
 
 inline void clear(QueryData<PairedEnd> & qData) {
     clear(qData.fwSeqs);
     clear(qData.revSeqs);
-    clear(qData.bcSeqs);
-    clear(qData.ids);
 }
 
-inline void addRecord(QueryData<PairedEnd> & qData, FastqRecord<PairedEnd> const & fqRecord)
-{
-    appendValue(qData.fwSeqs, fqRecord.fwSeq);
-    appendValue(qData.revSeqs, fqRecord.revSeq);
-    appendValue(qData.bcSeqs, fqRecord.bcSeq);
-    appendValue(qData.ids, fqRecord.id);
-}
+//inline void addRecord(QueryData<PairedEnd> & qData, FastqRecord<PairedEnd> const & fqRecord)
+//{
+//    appendValue(qData.fwSeqs, fqRecord.fwSeq);
+//    appendValue(qData.revSeqs, fqRecord.revSeq);
+//    appendValue(qData.bcSeqs, fqRecord.bcSeq);
+//    appendValue(qData.ids, fqRecord.id);
+//}
+//
+//inline void addRecord(QueryData<SingleEnd> & qData, FastqRecord<SingleEnd> const & fqRecord)
+//{
+//    appendValue(qData.seqs, fqRecord.seq);
+//    appendValue(qData.bcSeqs, fqRecord.bcSeq);
+//    appendValue(qData.ids, fqRecord.id);
+//}
 
-inline void addRecord(QueryData<SingleEnd> & qData, FastqRecord<SingleEnd> const & fqRecord)
-{
-    appendValue(qData.seqs, fqRecord.seq);
-    appendValue(qData.bcSeqs, fqRecord.bcSeq);
-    appendValue(qData.ids, fqRecord.id);
-}
-
-inline void addRecord(QueryDataCollection<SingleEnd> & qDatCol, FastqRecord<SingleEnd> const & rec)
-{
-    addRecord(qDatCol.queryData, rec);
-}
-
-inline void addRecord(QueryDataCollection<PairedEnd> & qDatCol, FastqRecord<PairedEnd> const & rec)
-{
-    if (empty(rec.fwSeq)) 
-        addRecord(qDatCol.singleQueryData, rec);
-    else
-        addRecord(qDatCol.pairedQueryData, rec);
-}
+//inline void addRecord(QueryDataCollection<SingleEnd> & qDatCol, FastqRecord<SingleEnd> const & rec)
+//{
+//    addRecord(qDatCol.queryData, rec);
+//}
+//
+//inline void addRecord(QueryDataCollection<PairedEnd> & qDatCol, FastqRecord<PairedEnd> const & rec)
+//{
+//    if (empty(rec.fwSeq)) 
+//        addRecord(qDatCol.singleQueryData, rec);
+//    else
+//        addRecord(qDatCol.pairedQueryData, rec);
+//}
 
 // ============================================================================
 // Getter for V Read Sequence
@@ -158,18 +154,18 @@ inline StringSet<TQueryDataSequence> const & getVDJReadSequences(QueryData<Paire
 // Getter for V Read IDs
 // ============================================================================
 
-template<typename TSequencingSpec>
-StringSet<CharString> & getReadIds(QueryData<TSequencingSpec> & qData)
-{
-    return qData.ids;
-}
-
-template<typename TSequencingSpec>
-StringSet<CharString> const & getReadIds(QueryData<TSequencingSpec> const & qData)
-{
-    return qData.ids;
-}
-
+//template<typename TSequencingSpec>
+//StringSet<CharString> & getReadIds(QueryData<TSequencingSpec> & qData)
+//{
+//    return qData.ids;
+//}
+//
+//template<typename TSequencingSpec>
+//StringSet<CharString> const & getReadIds(QueryData<TSequencingSpec> const & qData)
+//{
+//    return qData.ids;
+//}
+//
 // ============================================================================
 // Overlap Tag based functions
 // ============================================================================
@@ -198,28 +194,28 @@ StringSet<TQueryDataSequence> const & getReadSequences(TQueryData const & qData,
     return getVDJReadSequences(qData);
 }
 
-template<typename TQueryData>
-StringSet<CharString> & getReadIds(TQueryData & qData, LeftOverlap const) 
-{
-    return getVReadIds(qData);
-}
-
-template<typename TQueryData>
-StringSet<CharString> & getReadIds(TQueryData & qData, RightOverlap const) 
-{
-    return getVDJReadIds(qData);
-}
-
-template<typename TQueryData>
-StringSet<CharString> const & getReadIds(TQueryData const & qData, LeftOverlap const) 
-{
-    return getVReadIds(qData);
-}
-
-template<typename TQueryData>
-StringSet<CharString> const & getReadIds(TQueryData const & qData, RightOverlap const) 
-{
-    return getVDJReadIds(qData);
-}
+//template<typename TQueryData>
+//StringSet<CharString> & getReadIds(TQueryData & qData, LeftOverlap const) 
+//{
+//    return getVReadIds(qData);
+//}
+//
+//template<typename TQueryData>
+//StringSet<CharString> & getReadIds(TQueryData & qData, RightOverlap const) 
+//{
+//    return getVDJReadIds(qData);
+//}
+//
+//template<typename TQueryData>
+//StringSet<CharString> const & getReadIds(TQueryData const & qData, LeftOverlap const) 
+//{
+//    return getVReadIds(qData);
+//}
+//
+//template<typename TQueryData>
+//StringSet<CharString> const & getReadIds(TQueryData const & qData, RightOverlap const) 
+//{
+//    return getVDJReadIds(qData);
+//}
 
 #endif
