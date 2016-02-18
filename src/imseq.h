@@ -1740,27 +1740,6 @@ inline void countNewClone(TCloneStore & clusterStore, Clone<Dna5> const & clone,
 }
 
 /**
- * By default, the V-read is unmodified and the V(D)J read is reverse
- * complemented. If -r was specified, the opposite is performed.
- */
-inline void syncOrientation(FastqRecord<PairedEnd> & fqRecord, CdrOptions const & options)
-{
-    if (options.reverse)
-        reverseComplement(fqRecord.fwSeq);
-    else
-        reverseComplement(fqRecord.revSeq);
-}
-
-/**
- * By default, the V(D)J-read is reverse complemented. If -r is specified, this is omitted.
- */
-inline void syncOrientation(FastqRecord<SingleEnd> & fqRecord, CdrOptions const & options)
-{
-    if (!options.reverse)
-        reverseComplement(fqRecord.seq);
-}
-
-/**
  * Truncate the sequences in a FastqRecord - truncating always happens from the
  * *end* of each read since it is performed before any reverse-complement
  * is built!

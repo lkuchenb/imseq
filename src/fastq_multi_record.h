@@ -580,6 +580,8 @@ bool readRecords(FastqMultiRecordCollection<TSequencingSpec> & collection,
             // Statistics
             ii.maxReadLength = ii.maxReadLength > length(longerSeq(rec)) ? ii.maxReadLength : length(longerSeq(rec));
             ii.minReadLength = ii.minReadLength < length(shorterSeq(rec)) ? ii.minReadLength : length(shorterSeq(rec));
+            // Sync orientation for further processing
+            syncOrientation(rec, options);
             // Insert into collection
             findContainingMultiRecord(collection, rec, true);
         } else {

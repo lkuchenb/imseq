@@ -40,6 +40,7 @@
 #include "reject.h"
 #include "collection_utils.h"
 #include "qc_basics.h"
+#include "runtime_options.h"
 
 
 /********************************************************************************
@@ -128,6 +129,27 @@ inline void truncate(FastqRecord<PairedEnd> & rec, size_t len)
         resize(rec.fwSeq, len);
     if (length(rec.revSeq) > len)
         resize(rec.revSeq, len);
+}
+
+/**
+ * By default, the V-read is unmodified and the V(D)J read is reverse
+ * complemented. If -r was specified, the opposite is performed.
+ */
+inline void syncOrientation(FastqRecord<PairedEnd> & fqRecord, CdrOptions const & options)
+{
+    if (options.reverse)
+        reverseComplement(fqRecord.fwSeq);
+    else
+        reverseComplement(fqRecord.revSeq);
+}
+
+/**
+ * By default, the V(D)J-read is reverse complemented. If -r is specified, this is omitted.
+ */
+inline void syncOrientation(FastqRecord<SingleEnd> & fqRecord, CdrOptions const & options)
+{
+    if (!options.reverse)
+        reverseComplement(fqRecord.seq);
 }
 
 /**
