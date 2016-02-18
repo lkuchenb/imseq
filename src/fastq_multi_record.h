@@ -102,9 +102,22 @@ inline void compact(FastqMultiRecordCollection<SingleEnd> & collection)
 {
     typedef FastqMultiRecordCollection<SingleEnd> TColl;
     typedef TColl::TBcMap TBcMap;
+    typedef TColl::TSeqMap TSeqMap;
+    // Erase ID-empty FastqMultiRecords
     for (TBcMap::iterator bcIt = collection.bcMap.begin(); bcIt != collection.bcMap.end(); ++bcIt)
         compact(bcIt->second, collection.multiRecordPtrs);
     compact(collection.bcMap);
+    // Remap to skip NULL entries
+    String<FastqMultiRecord<SingleEnd>*> newPtrs;
+    for (TBcMap::iterator bcIt = collection.bcMap.begin(); bcIt != collection.bcMap.end(); ++bcIt)
+    {
+        for (TSeqMap::iterator seqIt = bcIt->second.begin(); seqIt != bcIt->second.end(); ++seqIt)
+        {
+            appendValue(newPtrs, collection.multiRecordPtrs[seqIt->second]);
+            seqIt->second = length(newPtrs)-1;
+        }
+    }
+    collection.multiRecordPtrs = newPtrs;
 }
 
 /**
@@ -115,12 +128,28 @@ inline void compact(FastqMultiRecordCollection<PairedEnd> & collection)
     typedef FastqMultiRecordCollection<PairedEnd> TColl;
     typedef TColl::TBcMap TBcMap;
     typedef TColl::TFwSeqMap TFwSeqMap;
+    typedef TColl::TRevSeqMap TRevSeqMap;
+    // Erase ID-empty FastqMultiRecords
     for (TBcMap::iterator bcIt = collection.bcMap.begin(); bcIt != collection.bcMap.end(); ++bcIt)
         for (TFwSeqMap::iterator fwIt = bcIt->second.begin(); fwIt != bcIt->second.end(); ++fwIt)
             compact(fwIt->second, collection.multiRecordPtrs);
     for (TBcMap::iterator bcIt = collection.bcMap.begin(); bcIt != collection.bcMap.end(); ++bcIt)
         compact(bcIt->second);
     compact(collection.bcMap);
+    // Remap to skip NULL entries
+    String<FastqMultiRecord<PairedEnd>*> newPtrs;
+    for (TBcMap::iterator bcIt = collection.bcMap.begin(); bcIt != collection.bcMap.end(); ++bcIt)
+    {
+        for (TFwSeqMap::iterator fwSeqIt = bcIt->second.begin(); fwSeqIt != bcIt->second.end(); ++fwSeqIt)
+        {
+            for (TRevSeqMap::iterator revSeqIt = fwSeqIt->second.begin(); revSeqIt != fwSeqIt->second.end(); ++revSeqIt)
+            {
+                appendValue(newPtrs, collection.multiRecordPtrs[revSeqIt->second]);
+                revSeqIt->second = length(newPtrs)-1;
+            }
+        }
+    }
+    collection.multiRecordPtrs = newPtrs;
 }
 
 /**
