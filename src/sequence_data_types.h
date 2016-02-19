@@ -70,6 +70,7 @@ struct QueryDataCollection<SingleEnd>
 template<>
 struct QueryDataCollection<PairedEnd>
 {
+    String<size_t> sePositions;
     QueryData<PairedEnd> pairedQueryData;
     QueryData<SingleEnd> singleQueryData;
 };

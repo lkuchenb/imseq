@@ -1736,7 +1736,6 @@ inline void countNewClone(TCloneStore & clusterStore, Clone<Dna5> const & clone,
         //TODO don't divide for each newly encountered read but only once at the end
 
     }
-     
 }
 
 /**
@@ -1765,43 +1764,43 @@ inline void truncateRead(FastqRecord<PairedEnd> & fqRecord, unsigned len, unsign
         resize(fqRecord.revSeq, len);
 }
 
-/*
- * Returns true if the average quality of the reverse read (paired end) or the read
- * (single end) is above or equal the user specified threshold
- */
-inline bool checkQuality(FastqRecord<SingleEnd> & fqRecord, CdrOptions const & options) 
-{
-    double qualAvg = 0;
-    for (unsigned pos=0; pos<length(fqRecord.seq); ++pos)
-        qualAvg += getQualityValue(fqRecord.seq[pos]);
-    qualAvg /= length(fqRecord.seq);
-
-    return (qualAvg >= options.qmin);
-}
-
-inline bool checkQuality(FastqRecord<PairedEnd> & fqRecord, CdrOptions const & options) 
-{
-    // If the reverse (VDJ) read doesn't pass the QC, reject the record
-    double qualAvg = 0;
-    for (unsigned pos=0; pos<length(fqRecord.revSeq); ++pos)
-        qualAvg += getQualityValue(fqRecord.revSeq[pos]);
-    qualAvg /= length(fqRecord.revSeq);
-
-    if (qualAvg < options.qmin)
-        return false;
-
-    // If the forward (V) read doesn't pass the QC, clear the sequence so
-    // that a V-identification can still be attempted on the reverse (VDJ) read.
-    qualAvg = 0;
-    for (unsigned pos=0; pos<length(fqRecord.fwSeq); ++pos)
-        qualAvg += getQualityValue(fqRecord.fwSeq[pos]);
-    qualAvg /= length(fqRecord.fwSeq);
-
-    if (qualAvg < options.qmin)
-        clear(fqRecord.fwSeq);
-
-    return true;
-}
+///*
+// * Returns true if the average quality of the reverse read (paired end) or the read
+// * (single end) is above or equal the user specified threshold
+// */
+//inline bool checkQuality(FastqRecord<SingleEnd> & fqRecord, CdrOptions const & options) 
+//{
+//    double qualAvg = 0;
+//    for (unsigned pos=0; pos<length(fqRecord.seq); ++pos)
+//        qualAvg += getQualityValue(fqRecord.seq[pos]);
+//    qualAvg /= length(fqRecord.seq);
+//
+//    return (qualAvg >= options.qmin);
+//}
+//
+//inline bool checkQuality(FastqRecord<PairedEnd> & fqRecord, CdrOptions const & options) 
+//{
+//    // If the reverse (VDJ) read doesn't pass the QC, reject the record
+//    double qualAvg = 0;
+//    for (unsigned pos=0; pos<length(fqRecord.revSeq); ++pos)
+//        qualAvg += getQualityValue(fqRecord.revSeq[pos]);
+//    qualAvg /= length(fqRecord.revSeq);
+//
+//    if (qualAvg < options.qmin)
+//        return false;
+//
+//    // If the forward (V) read doesn't pass the QC, clear the sequence so
+//    // that a V-identification can still be attempted on the reverse (VDJ) read.
+//    qualAvg = 0;
+//    for (unsigned pos=0; pos<length(fqRecord.fwSeq); ++pos)
+//        qualAvg += getQualityValue(fqRecord.fwSeq[pos]);
+//    qualAvg /= length(fqRecord.fwSeq);
+//
+//    if (qualAvg < options.qmin)
+//        clear(fqRecord.fwSeq);
+//
+//    return true;
+//}
 
 inline bool inStreamsAtEnd(SeqInputStreams<PairedEnd> const & inStreams) 
 {
@@ -1822,76 +1821,76 @@ inline bool inStreamsAtEnd(SeqInputStreams<SingleEnd> const & inStreams)
     return atEnd(inStreams.stream);
 }
 
-#ifdef __WITHCDR3THREADS__
-std::mutex MUTEX_readBlockOfRecords;
-#endif
-template<typename TSequencingSpec>
-long readBlockOfHighQualityRecords(
-        QueryDataCollection<TSequencingSpec> & queryDataCollection,
-        SeqInputStreams<TSequencingSpec> & inStreams,
-        CdrOptions const & options) 
-{
-    // ============================================================================
-    // Locking in case of multithreading
-    // ============================================================================
-#ifdef __WITHCDR3THREADS__
-    std::unique_lock<std::mutex> lock(MUTEX_readBlockOfRecords);
-#endif
-
-    unsigned nReads = 0;
-    StringSet<CharString> rejectIds;
-
-    if (inStreamsAtEnd(inStreams))
-        return -1;
-
-    while (!inStreamsAtEnd(inStreams))
-    {
-        FastqRecord<TSequencingSpec> fastqRecord;
-
-        try {
-            readRecord(fastqRecord, inStreams);
-        } catch (Exception const & e) {
-            std::cerr << "[ERR] Error reading FASTQ file: " << e.what() << std::endl;
-            return -1;
-        }
-
-        
-        // ============================================================================
-        // Truncate reads if requested so by the user
-        // ============================================================================
-
-        truncateRead(fastqRecord, options.trunkReads, options.vReadCrop);
-
-        // ============================================================================
-        // Ensure that the forward and reverse complement sequence have the same
-        // orientation.  Swap them if the -r option was specified. In case of
-        // single-end sequencing reverse complement the sequence if the -r option was
-        // specified.
-        // ============================================================================
-
-        syncOrientation(fastqRecord, options);
-
-        if (checkQuality(fastqRecord, options)) {
-            addRecord(queryDataCollection, fastqRecord);
-
-            ++nReads;
-        } else {
-            appendValue(rejectIds, fastqRecord.id);
-        }
-
-        if (nReads >= options.maxBlockSize)
-            break;
-
-    }
-    {
-#ifdef __WITHCDR3THREADS__
-        std::unique_lock<std::mutex> lock(MUTEX_ofstream_rejectlog);
-#endif
-        for (Iterator<StringSet<CharString> const, Rooted>::Type it = begin(rejectIds); !atEnd(it); goNext(it))
-            REJECTLOG << *it << '\t' << "AVERAGE_QUAL_FAIL" << std::endl;
-    }
-    return length(rejectIds);
-}
+//#ifdef __WITHCDR3THREADS__
+//std::mutex MUTEX_readBlockOfRecords;
+//#endif
+//template<typename TSequencingSpec>
+//long readBlockOfHighQualityRecords(
+//        QueryDataCollection<TSequencingSpec> & queryDataCollection,
+//        SeqInputStreams<TSequencingSpec> & inStreams,
+//        CdrOptions const & options) 
+//{
+//    // ============================================================================
+//    // Locking in case of multithreading
+//    // ============================================================================
+//#ifdef __WITHCDR3THREADS__
+//    std::unique_lock<std::mutex> lock(MUTEX_readBlockOfRecords);
+//#endif
+//
+//    unsigned nReads = 0;
+//    StringSet<CharString> rejectIds;
+//
+//    if (inStreamsAtEnd(inStreams))
+//        return -1;
+//
+//    while (!inStreamsAtEnd(inStreams))
+//    {
+//        FastqRecord<TSequencingSpec> fastqRecord;
+//
+//        try {
+//            readRecord(fastqRecord, inStreams);
+//        } catch (Exception const & e) {
+//            std::cerr << "[ERR] Error reading FASTQ file: " << e.what() << std::endl;
+//            return -1;
+//        }
+//
+//        
+//        // ============================================================================
+//        // Truncate reads if requested so by the user
+//        // ============================================================================
+//
+//        truncateRead(fastqRecord, options.trunkReads, options.vReadCrop);
+//
+//        // ============================================================================
+//        // Ensure that the forward and reverse complement sequence have the same
+//        // orientation.  Swap them if the -r option was specified. In case of
+//        // single-end sequencing reverse complement the sequence if the -r option was
+//        // specified.
+//        // ============================================================================
+//
+//        syncOrientation(fastqRecord, options);
+//
+//        if (checkQuality(fastqRecord, options)) {
+//            addRecord(queryDataCollection, fastqRecord);
+//
+//            ++nReads;
+//        } else {
+//            appendValue(rejectIds, fastqRecord.id);
+//        }
+//
+//        if (nReads >= options.maxBlockSize)
+//            break;
+//
+//    }
+//    {
+//#ifdef __WITHCDR3THREADS__
+//        std::unique_lock<std::mutex> lock(MUTEX_ofstream_rejectlog);
+//#endif
+//        for (Iterator<StringSet<CharString> const, Rooted>::Type it = begin(rejectIds); !atEnd(it); goNext(it))
+//            REJECTLOG << *it << '\t' << "AVERAGE_QUAL_FAIL" << std::endl;
+//    }
+//    return length(rejectIds);
+//}
 
 
 
@@ -1922,66 +1921,20 @@ String<AnalysisResult> analyseReads(
     // Types
     // ============================================================================
 
-    typedef typename TQueryData::TSequence      TSequence;
-    typedef String<AnalysisResult>                                      TResults;
-    typedef typename Infix<TSequence>::Type                                      TInfix;
-    typedef SegmentMatch<typename Infix<TSequence const>::Type>                  TSegmentMatch;
+    typedef typename TQueryData::TSequence                      TSequence;
+    typedef String<AnalysisResult>                              TResults;
+    typedef typename Infix<TSequence>::Type                     TInfix;
+    typedef SegmentMatch<typename Infix<TSequence const>::Type> TSegmentMatch;
 
     // ============================================================================
     // Declarations
     // ============================================================================
 
     TQueryData newQueries;
-    String<unsigned> newIndices;
     TResults results;
     String<bool> wasCached;
     resize(results, nRecords(queryData));
     resize(wasCached, nRecords(queryData), false);
-
-    // ============================================================================
-    // Retrieve entries from the cache if caching is enabled
-    // THREADS: safe, read-only access to the cache store, otherwise nothing 
-    //          critical
-    // ============================================================================
-
-//    if (cacheStore != NULL) { // Caching is enabled
-//        StringSet<TSequence> & vdjSeqs = getVDJReadSequences(queryData);
-//#ifdef __WITHCDR3THREADS__
-//        std::unique_lock<std::mutex> lock(CACHE_STORE_MUTEX);
-//#endif
-//        for (unsigned i = 0; i < nRecords(queryData); ++i) {
-//            TCacheStore::const_iterator cr = cacheStore->find(getCacheStoreKey(queryData, i));
-//            if (cr != cacheStore->end()) {
-//                wasCached[i] = true;
-//                // If V/J reference copy operations were performed on this sequence, the affected
-//                // positions must have a maximum quality value
-//                String<Dna5Q> seqCopy = vdjSeqs[i];
-//                for (Iterator<String<unsigned> const,Rooted>::Type it = begin(cr->second.modifiedPositions); !atEnd(it); goNext(it))
-//                    assignQualityValue(seqCopy[*it], global.options.maxQualityValue);
-//                // The quality values of the cdr3 region must still be retrieved from the read
-//                // sequence
-//                Infix<String<Dna5Q> >::Type cdrInfix(seqCopy);
-//                setBeginPosition(cdrInfix, cr->second.cdrBeginPos);
-//                setEndPosition(cdrInfix, cr->second.cdrEndPos);
-//                String<uint64_t> cdrQualities;
-//                getQualityString(cdrQualities, cdrInfix);
-//                results[i] = cr->second.analysisResult;
-//                // The qualities are not contained in the cache record.
-//                results[i].cdrQualities = cdrQualities;
-//                // The barcode is not contained in the cache record.
-//                if (length(results[i].cdrQualities)==0 and cr->second.analysisResult.reject==NONE) {
-//                    std::cerr << "\nCACHE STORE ENTRY FOR SEQ '" << getCacheStoreKey(queryData, i) << "' with no reject and no quality string!" << std::endl;
-//                    exit(2);
-//                }
-//            } else {
-//                appendRecord(newQueries, queryData, i);
-//                appendValue(newIndices, i);
-//            }
-//        }
-//    } else {
-        resize(newIndices, nRecords(queryData));
-        for (unsigned i=0; i<nRecords(queryData); ++i) newIndices[i]=i;
-//    }
 
     // ============================================================================
     // Find the best overlap alignments for the V and J segments
@@ -1994,7 +1947,7 @@ String<AnalysisResult> analyseReads(
 
     // Find best matching V-segments
 
-    findBestSegmentMatch(leftMatches, newQueries, global, LeftOverlap());
+    findBestSegmentMatch(leftMatches, queryData, global, LeftOverlap());
 
     if (global.options.outputAligments)
     {
@@ -2014,7 +1967,7 @@ String<AnalysisResult> analyseReads(
 
     // Find best matching J-segments
 
-    findBestSegmentMatch(rightMatches, newQueries, global, RightOverlap());
+    findBestSegmentMatch(rightMatches, queryData, global, RightOverlap());
 
     if (global.options.outputAligments)
     {
@@ -2027,7 +1980,6 @@ String<AnalysisResult> analyseReads(
             }
         }
     }
-
 
     // ============================================================================
     // For each newly calculated result the begin and end position of the cdr3
@@ -2047,21 +1999,18 @@ String<AnalysisResult> analyseReads(
     // THREADS: Safe.
     // ============================================================================
 
-    for (Iterator<String<unsigned>, Rooted>::Type indexIt = begin(newIndices); !atEnd(indexIt); goNext(indexIt)) {
-
-        unsigned outerReadId = *indexIt;
-        unsigned readId = position(indexIt);
+    for (size_t i = 0; i<nRecords(queryData); ++i) {
 
         // ============================================================================
         // Reject the read if the V or J identification failed
         // ============================================================================
 
-        if (length(leftMatches[readId]) == 0 || length(rightMatches[readId]) == 0) {
-            results[outerReadId] = rejectRead(getCacheStoreKey(queryData, outerReadId), SEGMENT_MATCH_FAILED, NULL);
+        if (length(leftMatches[i]) == 0 || length(rightMatches[i]) == 0) {
+            results[i] = AnalysisResult(SEGMENT_MATCH_FAILED);
             continue;
         }
 
-        TSequence modSeq = getVDJReadSequences(queryData)[outerReadId];
+        TSequence modSeq = getVDJReadSequences(queryData)[i];
 
         // ============================================================================
         // Try to identify the CDR3 region and reject the read if that fails
@@ -2069,9 +2018,9 @@ String<AnalysisResult> analyseReads(
 
         TInfix cdrInfix(modSeq);
         {
-            RejectReason reject = findCDR3Region(cdrInfix, leftMatches[readId], rightMatches[readId], global);
+            RejectReason reject = findCDR3Region(cdrInfix, leftMatches[i], rightMatches[i], global);
             if (reject) {
-                results[outerReadId] = rejectRead(getCacheStoreKey(queryData, outerReadId), reject, NULL);
+                results[i] = AnalysisResult(reject);
                 continue;
             }
         }
@@ -2084,15 +2033,15 @@ String<AnalysisResult> analyseReads(
         unsigned cdrBegin   = beginPosition(cdrInfix);
         unsigned cdrEnd     = endPosition(cdrInfix);
 
-        cdrBeginEndPairs[outerReadId] = std::make_pair(cdrBegin, cdrEnd);
+        cdrBeginEndPairs[i] = std::make_pair(cdrBegin, cdrEnd);
 
         if (cdrBegin >= cdrEnd) {
-            results[outerReadId] = rejectRead(getCacheStoreKey(queryData, outerReadId), BROKEN_CDR_BOUNDARIES, NULL);
+            results[i] = AnalysisResult(BROKEN_CDR_BOUNDARIES);
             continue;
         }
 
         if ((cdrEnd-cdrBegin)%3 != 0) {
-            results[outerReadId] = rejectRead(getCacheStoreKey(queryData, outerReadId), OUT_OF_READING_FRAME, NULL);
+            results[i] = AnalysisResult(OUT_OF_READING_FRAME);
             continue;
         }
 
@@ -2109,7 +2058,7 @@ String<AnalysisResult> analyseReads(
 
         for (Iterator<String<AminoAcid>, Rooted>::Type it = begin(aaCdr3); !atEnd(it); goNext(it))
             if (*it == convert<AminoAcid>('X')) {
-                results[outerReadId] = rejectRead(getCacheStoreKey(queryData, outerReadId), NONSENSE_IN_CDR3, NULL);
+                results[i] = AnalysisResult(NONSENSE_IN_CDR3);
                 nonsense = true;
                 break;
             }
@@ -2126,10 +2075,10 @@ String<AnalysisResult> analyseReads(
 
         // Store the segment ids of the matching segments
         std::set<unsigned> vHits, jHits;
-        for (typename Iterator<String<TSegmentMatch>, Rooted>::Type match = begin(leftMatches[readId]); !atEnd(match); goNext(match)) {
+        for (typename Iterator<String<TSegmentMatch>, Rooted>::Type match = begin(leftMatches[i]); !atEnd(match); goNext(match)) {
             vHits.insert(match->db);
         }
-        for (typename Iterator<String<TSegmentMatch>, Rooted>::Type match = begin(rightMatches[readId]); !atEnd(match); goNext(match)) {
+        for (typename Iterator<String<TSegmentMatch>, Rooted>::Type match = begin(rightMatches[i]); !atEnd(match); goNext(match)) {
             jHits.insert(match->db);
         }
 
@@ -2141,8 +2090,8 @@ String<AnalysisResult> analyseReads(
         String<int> leftErrPos, rightErrPos;
         unsigned leftOuterMatchLen = -1u;
         unsigned rightOuterMatchLen = -1u;
-        bool leftUniqueErrPos = getErrorPositions(leftErrPos, leftOuterMatchLen, leftMatches[readId], global.references.leftMeta, LeftOverlap());
-        bool rightUniqueErrPos = getErrorPositions(rightErrPos, rightOuterMatchLen, rightMatches[readId], global.references.rightMeta, RightOverlap());
+        bool leftUniqueErrPos = getErrorPositions(leftErrPos, leftOuterMatchLen, leftMatches[i], global.references.leftMeta, LeftOverlap());
+        bool rightUniqueErrPos = getErrorPositions(rightErrPos, rightOuterMatchLen, rightMatches[i], global.references.rightMeta, RightOverlap());
 
         // ============================================================================
         // Assemble the tab separated string containing the detailed per read data
@@ -2210,7 +2159,7 @@ String<AnalysisResult> analyseReads(
         getQualityString(cdrQualities, cdrInfix);
         AnalysisResult cr(c, CharString(fullOut.str()), cdrQualities);
 
-        results[outerReadId] = cr;
+        results[i] = cr;
 
     }
 
@@ -2227,39 +2176,6 @@ String<AnalysisResult> analyseReads(
     std::unique_lock<std::mutex> lock(CACHE_STORE_MUTEX);
 #endif
 
-//    for (Iterator<TResults, Rooted>::Type lcm = begin(results); !atEnd(lcm); goNext(lcm)) {
-//        unsigned const & readId = position(lcm);
-//        AnalysisResult const & ar = *lcm;
-//        if (!ar.reject) {
-//            // Increase the counter for this clone
-//            countNewClone(cloneStore, ar.clone, ar.cdrQualities);
-//            // Output the detailed per-read information if requested
-//            if (global.outFiles._fullOutStream != NULL) {
-//                *global.outFiles._fullOutStream << getReadIds(queryData)[readId];
-//                *global.outFiles._fullOutStream << ar.fullOutSuffix;
-//            }
-//        } else {
-//            // Output the reject log information if requested
-//            if (__rejectLog != NULL) *__rejectLog << getReadIds(queryData)[readId] << '\t' << _CDRREJECTS[ar.reject] << std::endl;
-//        }
-//        // Check if caching is enabled and store the result if so. Rejects due to quality issues are
-//        // not cached, as they do not solely depend on the sequence of the read.
-//        if (cacheStore!=NULL && !wasCached[readId] && ar.reject!=AVERAGE_QUAL_FAIL && ar.reject!=LOW_QUALITY_BASE_IN_CDR) {
-//            CacheEntry ce(ar, cdrBeginEndPairs[readId].first, cdrBeginEndPairs[readId].second, modifiedPositions[readId]);
-//            std::pair<TCacheStore::iterator,bool> prev = cacheStore->insert( std::make_pair(getCacheStoreKey(queryData, readId), ce ) );
-//            // Safety check - if the result was already cached before (because the same sequence
-//            // occurred in a group of reads that was analyzed together) the cached result must be
-//            // identical to the newly computed result.
-//            if (!prev.second && prev.first->second != ce) {
-//                std::cerr << "=ERR= Cache consistency error for an accepted read." << std::endl;
-//                std::cerr << "\n\n== Previous cache entry\nKey\t" << prev.first->first << "\nValue:\t";
-//                std::cerr << toString(prev.first->second) << std::endl;
-//                std::cerr << "\n\n== New cache entry\nKey\t" << getCacheStoreKey(queryData, readId) << "\nValue:\t";
-//                std::cerr << toString(ce) << std::endl;
-//                exit(1);
-//            } 
-//        }
-//    }
     return results;
 }
 
@@ -2275,9 +2191,24 @@ String<AnalysisResult> analyseReads(
         CdrGlobalData<PairedEnd> & global)              // [IN]  Global parameters and data
 {
     // Analyse the paired end data
-    String<AnalysisResult> res = analyseReads(qDatCol.pairedQueryData, global);
+    String<AnalysisResult> peRes = analyseReads(qDatCol.pairedQueryData, global);
     // Analyse the single end data
-    append(res, analyseReads(qDatCol.singleQueryData, global));
+    String<AnalysisResult> seRes = analyseReads(qDatCol.singleQueryData, global);
+    // Interlace correctly
+    String<AnalysisResult> res;
+    reserve(res, length(peRes)+length(seRes));
+    size_t pe_idx = 0, se_idx = 0;
+    Iterator<String<size_t> const, Rooted>::Type sePosIt = begin(qDatCol.sePositions);
+    for (size_t i=0; i<nRecords(qDatCol); ++i)
+    {
+        if (sePosIt != end(qDatCol.sePositions) && *sePosIt == i)
+        {
+            ++sePosIt;
+            appendValue(res, seRes[se_idx++]);
+        } else {
+            appendValue(res, peRes[pe_idx++]);
+        }
+    }
     return res;
 }
 
@@ -2348,17 +2279,62 @@ void processReads(
     }
 }
 
-template<typename TSequencingSpec>
-bool runCDR3Analysis(
-        TCloneStore& cloneStore,    // OUT: The map of clone counts to insert the results into
+template <typename TSequencingSpec>
+void splitAnalysisResults(
+        std::map<Clone<Dna5>, ClusterResult> & nucCloneStore,
         String<RejectEvent> & rejectEvents,
-        FastqMultiRecordCollection<TSequencingSpec> & collection,
-        CdrGlobalData<TSequencingSpec> & global,           //  IN: The user specified parameters
-        uint64_t const readCount)   //  IN: The total number of reads
+        String<AnalysisResult> const & results,
+        String<FastqMultiRecord<TSequencingSpec>*> const & recPtrs
+        )
 {
-
+    nucCloneStore.clear();
     clear(rejectEvents);
+    for (size_t i = 0; i<length(results); ++i)
+    {
+        AnalysisResult const & ar = results[i];
+        FastqMultiRecord<TSequencingSpec> const & record = *(recPtrs[i]);
+        if (!ar.reject) {
+            // Increase the counter for this clone
+            countNewClone(nucCloneStore, ar.clone, ar.cdrQualities);
+        } else {
+            for (CharString const & id : record.ids)
+                appendValue(rejectEvents, RejectEvent(id, ar.reject));
+        }
+    }
+}
 
+template <typename TSequencingSpec>
+void writeRDTFile(
+        CdrGlobalData<TSequencingSpec> & global,
+        String<AnalysisResult> const & results,
+        String<FastqMultiRecord<TSequencingSpec>*> const & recPtrs
+        )
+{
+    for (size_t i=0; i<length(results); ++i) {
+        AnalysisResult const & ar = results[i];
+        FastqMultiRecord<TSequencingSpec> & rec = *recPtrs[i];
+        for (CharString const & id : rec.ids)
+            *global.outFiles._fullOutStream << id << ar.fullOutSuffix;
+    }
+}
+
+template <typename TAlph>
+size_t nClones(std::map<Clone<TAlph>, ClusterResult> const & cloneStore)
+{
+    typedef std::map<Clone<TAlph>, ClusterResult> TCloneStore;
+    typedef typename TCloneStore::const_iterator  TIter;
+    size_t cloneCount = 0;
+    for (TIter ccount = cloneStore.begin(); ccount!=cloneStore.end(); ++ccount)
+        cloneCount += ccount->second.count;
+    return cloneCount;
+}
+
+template<typename TSequencingSpec>
+String<AnalysisResult> runCDR3Analysis(
+        FastqMultiRecordCollection<TSequencingSpec> & collection, //  IN: Input data
+        CdrGlobalData<TSequencingSpec> & global                   //  IN: The user specified parameters
+        )
+{
     // ============================================================================
     // Status message
     // ============================================================================
@@ -2370,7 +2346,7 @@ bool runCDR3Analysis(
     // user. Initialize the progress bar shown at the command prompt.
     // ============================================================================
 
-    ProgressBar progBar(std::cerr, readCount, 100, "      ");
+    ProgressBar progBar(std::cerr, length(collection.multiRecordPtrs), 100, "      ");
     progBar.print_progress();
 
     // ============================================================================
@@ -2398,47 +2374,22 @@ bool runCDR3Analysis(
 #endif
     progBar.clear();
 
-    // ============================================================================
-    // Add results to clonestore
-    // ============================================================================
-
-    for (size_t i = 0; i<length(results); ++i)
-    {
-        AnalysisResult const & ar = results[i];
-        FastqMultiRecord<TSequencingSpec> const & record = *(collection.multiRecordPtrs[i]);
-        if (!ar.reject) {
-            // Increase the counter for this clone
-            countNewClone(cloneStore, ar.clone, ar.cdrQualities);
-            // Output the detailed per-read information if requested
-//            if (global.outFiles._fullOutStream != NULL) {
-//                *global.outFiles._fullOutStream << getReadIds(queryData)[readId];
-//                *global.outFiles._fullOutStream << ar.fullOutSuffix;
-//            }
-        } else {
-            for (CharString const & id : record.ids)
-                appendValue(rejectEvents, RejectEvent(id, ar.reject));
-            // Output the reject log information if requested
-//            if (__rejectLog != NULL) *__rejectLog << getReadIds(queryData)[readId] << '\t' << _CDRREJECTS[ar.reject] << std::endl;
-        }
-    }
-
-    // ============================================================================
-    // Output info about how many of the reads were successfully analyzed
-    // ============================================================================
-
-    __uint64 cloneCount = 0;
-    for (std::map<Clone<Dna5>, ClusterResult>::const_iterator ccount = cloneStore.begin(); ccount!=cloneStore.end(); ++ccount)
-        cloneCount += ccount->second.count;
-    std::string s = cloneCount == 1 ? "clone" : "clones";
-    std::cerr << "  |-- " << cloneCount << " " << s << " could be identified." << std::endl;
-
-    return true;
+    return results;
 }
 
+template <typename TStream>
+void writeRejectLog(TStream & stream, String<RejectEvent> const & rejectEvents)
+{
+    for (RejectEvent const & rejectEvent : rejectEvents)
+    {
+        stream << rejectEvent.id << '\t' << _CDRREJECTS[rejectEvent.reason] << '\n';
+    }
+    stream << std::flush;
+}
 
 template<typename TSequencingSpec>
 int runAnalysis(CdrGlobalData<TSequencingSpec> & global,
-        InputInformation const & inputInformation,
+        String<RejectEvent> & rejectEvents,
         FastqMultiRecordCollection<TSequencingSpec> & collection)
 {
 
@@ -2470,16 +2421,43 @@ int runAnalysis(CdrGlobalData<TSequencingSpec> & global,
     // Perform the analysis
     // ============================================================================
 
-    typedef std::map<Clone<Dna5>, ClusterResult> TNucCloneStore;
-    TNucCloneStore nucCloneStore;
-
     std::clock_t beforeAnalysis = std::clock();
 
-    String<RejectEvent> rejectEvents;
-    if (!runCDR3Analysis(nucCloneStore, rejectEvents, collection, global, inputInformation.totalReadCount))
-        exit(1);
+    String<AnalysisResult> results = runCDR3Analysis(collection, global);
 
     std::cerr << "  |-- Required cpu time: " << formatSeconds(double(std::clock() - beforeAnalysis) / CLOCKS_PER_SEC) << std::endl;;
+
+    // ============================================================================
+    // Fill Nucleotide Clone Store and reject events
+    // ============================================================================
+
+    typedef std::map<Clone<Dna5>, ClusterResult> TNucCloneStore;
+    TNucCloneStore nucCloneStore;
+    String<RejectEvent> newRejectEvents;
+    splitAnalysisResults(nucCloneStore, newRejectEvents, results, collection.multiRecordPtrs);
+    append(rejectEvents, newRejectEvents);
+
+    // ============================================================================
+    // Output info about how many of the reads were successfully analyzed
+    // ============================================================================
+
+    size_t cloneCount = nClones(nucCloneStore);
+    std::string s = cloneCount == 1 ? "clone" : "clones";
+    std::cerr << "  |-- " << cloneCount << " " << s << " could be identified." << std::endl;
+
+    // ============================================================================
+    // Write detailed per read output file if requested
+    // ============================================================================
+
+    if (global.outFiles._fullOutStream != NULL)
+        writeRDTFile(global, results, collection.multiRecordPtrs);
+
+    // ============================================================================
+    // Write reject information if requested
+    // ============================================================================
+
+    if (__rejectLog != NULL)
+        writeRejectLog(*__rejectLog, rejectEvents);
 
     // ============================================================================
     // Compute the average quality scores
@@ -2683,7 +2661,7 @@ int main_generic(CdrGlobalData<TSequencingSpec> & global, CdrOptions & options, 
     // RUN THE CLONOTYING ANALYSIS
     // ============================================================================
 
-    return runAnalysis(global, inputInformation, noBcCollection);
+    return runAnalysis(global, rejectEvents, noBcCollection);
 }
 
 #endif  // #ifndef SANDBOX_LKUCHENB_APPS_CDR3FINDER_CDR3FINDER_H_

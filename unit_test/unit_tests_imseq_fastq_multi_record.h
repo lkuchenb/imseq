@@ -24,6 +24,54 @@
 
 #include "../src/fastq_multi_record.h"
 
+SEQAN_DEFINE_TEST(unit_tests_imseq_fastq_multi_record_collection_compact_PairedEnd)
+{
+    {
+        FastqMultiRecordCollection<PairedEnd> collection;
+        findContainingMultiRecord(collection, FastqRecord<PairedEnd>("READ_1", "ACTGGCATACG", "GGGGCAAAGCA", "CCAT"), true);
+        findContainingMultiRecord(collection, FastqRecord<PairedEnd>("READ_2", "ACTGTCATACG", "GGGGCAAAGCA", "CCAT"), true);
+        // The next two are identical
+        findContainingMultiRecord(collection, FastqRecord<PairedEnd>("READ_3", "ACTGTCATACG", "GGGGCAAGGCA", "CCAT"), true);
+        findContainingMultiRecord(collection, FastqRecord<PairedEnd>("READ_4", "ACTGTCATACG", "GGGGCAAGGCA", "CCAT"), true);
+        // New barcode
+        findContainingMultiRecord(collection, FastqRecord<PairedEnd>("READ_5", "ACTGTCATACG", "GGGGCAAGGCA", "CCTT"), true);
+        SEQAN_ASSERT_EQ(length(collection.multiRecordPtrs), 4u);
+        for (FastqMultiRecord<PairedEnd>* ptr : collection.multiRecordPtrs)
+            SEQAN_ASSERT(ptr != NULL);
+        // Now we merge READ_5 into READ_3+READ_4
+        FastqMultiRecord<PairedEnd> & target = *collection.multiRecordPtrs[2];
+        SEQAN_ASSERT_EQ(*target.ids.begin(), "READ_3");
+        FastqMultiRecord<PairedEnd> & source = *collection.multiRecordPtrs[3];
+        SEQAN_ASSERT_EQ(*source.ids.begin(), "READ_5");
+        target.ids.insert(source.ids.begin(), source.ids.end());
+        source.ids.clear();
+        // Also READ_1 is merged into them
+        FastqMultiRecord<PairedEnd> & source2 = *collection.multiRecordPtrs[0];
+        SEQAN_ASSERT_EQ(*source2.ids.begin(), "READ_1");
+        target.ids.insert(source2.ids.begin(), source2.ids.end());
+        source2.ids.clear();
+        // Now we compact() the collection
+        compact(collection);
+        SEQAN_ASSERT_EQ(length(collection.multiRecordPtrs), 2u);
+        FastqMultiRecord<PairedEnd> * x = NULL;
+        x = collection.multiRecordPtrs[collection.bcMap["CCAT"]["ACTGTCATACG"]["GGGGCAAGGCA"]];
+        SEQAN_ASSERT_EQ(x->bcSeq,  "CCAT");
+        SEQAN_ASSERT_EQ(x->fwSeq,  "ACTGTCATACG");
+        SEQAN_ASSERT_EQ(x->revSeq, "GGGGCAAGGCA");
+        SEQAN_ASSERT_EQ(x->ids.size(), 4u);
+        SEQAN_ASSERT(x->ids.find("READ_1") != x->ids.end());
+        SEQAN_ASSERT(x->ids.find("READ_3") != x->ids.end());
+        SEQAN_ASSERT(x->ids.find("READ_4") != x->ids.end());
+        SEQAN_ASSERT(x->ids.find("READ_5") != x->ids.end());
+        x = collection.multiRecordPtrs[collection.bcMap["CCAT"]["ACTGTCATACG"]["GGGGCAAAGCA"]];
+        SEQAN_ASSERT_EQ(x->bcSeq,  "CCAT");
+        SEQAN_ASSERT_EQ(x->fwSeq,  "ACTGTCATACG");
+        SEQAN_ASSERT_EQ(x->revSeq, "GGGGCAAAGCA");
+        SEQAN_ASSERT_EQ(x->ids.size(), 1u);
+        SEQAN_ASSERT(x->ids.find("READ_2") != x->ids.end());
+    }
+}
+
 SEQAN_DEFINE_TEST(unit_tests_imseq_fastq_multi_record_findContainingMultiRecord_PairedEnd)
 {
     {

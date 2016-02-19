@@ -146,6 +146,7 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     addOption(parser, ArgParseOption("vcr", "v-read-crop", "Crop NUM bases from the beginning of the V read before processing it", ArgParseArgument::INTEGER));
     setMinValue(parser, "vcr", "0");
     setDefaultValue(parser, "vcr", 0);
+    addOption(parser, ArgParseOption("sfb", "single-end-fallback", "Fall back to single end analysis based on VDJ read if the V read fails the quality test (-mq)"));
 
     //================================================================================
     // V / J segment alignment (expert)
@@ -337,6 +338,7 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     else
         options.pairedMaxErrRateVOverlap = options.maxErrRateV;
     getOptionValue(options.vReadCrop, parser, "vcr");
+    options.singleEndFallback = isSet(parser, "sfb");
     options.pairedMinVOverlap = 10;
     options.mergeIdenticalCDRs = isSet(parser, "ma");
 

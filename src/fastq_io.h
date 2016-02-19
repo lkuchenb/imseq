@@ -183,14 +183,14 @@ inline std::string toString(FastqRecord<SingleEnd> const & rec) {
  * @return A RejectReason object
  */
 template <typename TSequencingSpec>
-RejectReason qualityControl(FastqRecord<TSequencingSpec> const & rec,
+RejectReason qualityControl(FastqRecord<TSequencingSpec> & rec,
         CdrOptions const & options)
 {
     if (contains(rec.bcSeq, 'N'))
         return N_IN_BARCODE;
     if (anyQualityBelow(rec.bcSeq, options.bcQmin))
         return LOW_QUALITY_BARCODE_BASE;
-    if (averageQualityBelow(rec, options.qmin))
+    if (averageQualityBelow(rec, options.qmin, options.singleEndFallback))
         return AVERAGE_QUAL_FAIL;
     return NONE;
 }

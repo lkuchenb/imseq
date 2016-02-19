@@ -622,7 +622,6 @@ void findBestSegmentMatch(
 
     CdrReferences::TSegCoreFragmentStringSet scfs = getSCFs(references, TOverlapSpec());
 
-
     findCandidateCoreSegments(candidateMatches, seqs, scfs, getMaxCoreSegErrors(global.options, TOverlapSpec()));
 
     findBestSCFs(

@@ -52,7 +52,8 @@ bool averageQualityBelow(String<TValue> const & string, TNumeric const thresh) {
  * @special Single end
  */
 template<typename TNumeric>
-bool averageQualityBelow(FastqRecord<SingleEnd> const & rec, TNumeric const thresh) {
+bool averageQualityBelow(FastqRecord<SingleEnd> & rec, TNumeric const thresh, bool dropFwSeqIfLQ = false) {
+    ignoreUnusedVariableWarning(dropFwSeqIfLQ);
     return averageQualityBelow(rec.seq, thresh);
 }
 
@@ -60,8 +61,18 @@ bool averageQualityBelow(FastqRecord<SingleEnd> const & rec, TNumeric const thre
  * @special Paired end
  */
 template<typename TNumeric>
-bool averageQualityBelow(FastqRecord<PairedEnd> const & rec, TNumeric const thresh) {
-    return averageQualityBelow(rec.fwSeq, thresh) || averageQualityBelow(rec.revSeq, thresh);
+bool averageQualityBelow(FastqRecord<PairedEnd> & rec, TNumeric const thresh, bool dropFwSeqIfLQ = false) {
+    if (averageQualityBelow(rec.fwSeq, thresh))
+    {
+        if (!dropFwSeqIfLQ)
+            return true;
+        else if (!averageQualityBelow(rec.revSeq, thresh))
+        {
+            rec.fwSeq = "";
+            return false;
+        }
+    }
+    return averageQualityBelow(rec.revSeq, thresh);
 }
 
 /**

@@ -30,6 +30,7 @@ SEQAN_DEFINE_TEST(unit_tests_imseq_fastq_io_qualityControl)
         CdrOptions options;
         options.qmin = 30;
         options.bcQmin = 30;
+        options.singleEndFallback = false;
 
         FastqRecord<PairedEnd> rec;
         rec.fwSeq = "CGATGACTGAGCTAGACTGCAC";
@@ -45,6 +46,8 @@ SEQAN_DEFINE_TEST(unit_tests_imseq_fastq_io_qualityControl)
         SEQAN_ASSERT_EQ(qualityControl(rec, options), NONE);
         assignQualityValue(rec.fwSeq[3], 25);
         SEQAN_ASSERT_EQ(qualityControl(rec, options), AVERAGE_QUAL_FAIL);
+        options.singleEndFallback = true;
+        SEQAN_ASSERT_EQ(qualityControl(rec, options), NONE);
         assignQualityValue(rec.bcSeq[2], 29);
         SEQAN_ASSERT_EQ(qualityControl(rec, options), LOW_QUALITY_BARCODE_BASE);
         rec.bcSeq[4] = 'N';

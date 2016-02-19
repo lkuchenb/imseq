@@ -641,14 +641,17 @@ inline QueryDataCollection<SingleEnd> buildQDCollection(String<FastqMultiRecord<
 inline QueryDataCollection<PairedEnd> buildQDCollection(String<FastqMultiRecord<PairedEnd>*> const & ptrs)
 {
     QueryDataCollection<PairedEnd> qdc;
-    for (FastqMultiRecord<PairedEnd> const * ptr : ptrs)
+
+    for (size_t i=0; i<length(ptrs); ++i)
     {
+        FastqMultiRecord<PairedEnd> const * ptr = ptrs[i];
         if (!empty(ptr->fwSeq))
         {
             appendValue(qdc.pairedQueryData.fwSeqs, ptr->fwSeq);
             appendValue(qdc.pairedQueryData.revSeqs, ptr->revSeq);
         } else {
             appendValue(qdc.singleQueryData.seqs, ptr->revSeq);
+            appendValue(qdc.sePositions, i);
         }
     }
     return qdc;

@@ -50,6 +50,7 @@ SEQAN_BEGIN_TESTSUITE(unit_tests_imseq)
     // unit_tests_imseq_fastq_multi_record.h
     SEQAN_CALL_TEST(unit_tests_imseq_fastq_multi_record_findContainingMultiRecord_SingleEnd);
     SEQAN_CALL_TEST(unit_tests_imseq_fastq_multi_record_findContainingMultiRecord_PairedEnd);
+    SEQAN_CALL_TEST(unit_tests_imseq_fastq_multi_record_collection_compact_PairedEnd);
 }
 
 SEQAN_END_TESTSUITE
