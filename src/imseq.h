@@ -2312,9 +2312,12 @@ void writeRDTFile(
 {
     for (size_t i=0; i<length(results); ++i) {
         AnalysisResult const & ar = results[i];
+        if (ar.reject)
+            continue;
         FastqMultiRecord<TSequencingSpec> & rec = *recPtrs[i];
-        for (CharString const & id : rec.ids)
+        for (CharString const & id : rec.ids) {
             *global.outFiles._fullOutStream << id << ar.fullOutSuffix;
+        }
     }
 }
 
