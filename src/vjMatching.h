@@ -857,7 +857,7 @@ void findBestSegmentMatch(
             if (overlapLength >= global.options.pairedMinVOverlap && errRate <= global.options.pairedMaxErrRateVOverlap) {
                 if (unitScore > maxScore) {
                     clear(readMatches);
-                    maxScore = score;
+                    maxScore = unitScore;
                 }
                 appendValue(readMatches, TSegmentMatch(*refIt, unitScore, align));
             }
