@@ -2045,6 +2045,11 @@ String<AnalysisResult> analyseReads(
             continue;
         }
 
+        if ((cdrEnd-cdrBegin)/3 < global.options.minCDR3Length) {
+            results[i] = AnalysisResult(CDR3_TOO_SHORT);
+            continue;
+        }
+
         // ============================================================================
         // Translate the CDR3 region and reject the read if any nonsense translation
         // appears in the aa sequence.

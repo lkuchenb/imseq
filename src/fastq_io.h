@@ -173,6 +173,24 @@ inline std::string toString(FastqRecord<SingleEnd> const & rec) {
     return ss.str();
 }
 
+inline bool readTooShort(FastqRecord<SingleEnd> & rec, size_t const minLength, bool const singleEndFallback = false)
+{
+    ignoreUnusedVariableWarning(singleEndFallback);
+    return length(rec.seq) < minLength; 
+}
+
+inline bool readTooShort(FastqRecord<PairedEnd> & rec, size_t const minLength, bool const singleEndFallback = false)
+{
+    if (length(rec.revSeq) < minLength)
+        return true;
+    if (length(rec.fwSeq) >= minLength)
+        return false;
+    if (!singleEndFallback)
+        return true;
+    rec.fwSeq = "";
+    return false;
+}
+
 /**
  * Performs the first quality control performed directly after reading a FASTQ
  * record.
@@ -188,10 +206,12 @@ RejectReason qualityControl(FastqRecord<TSequencingSpec> & rec,
 {
     if (contains(rec.bcSeq, 'N'))
         return N_IN_BARCODE;
-    if (anyQualityBelow(rec.bcSeq, options.bcQmin))
+    if (options.bcQmin > 0 && anyQualityBelow(rec.bcSeq, options.bcQmin))
         return LOW_QUALITY_BARCODE_BASE;
-    if (averageQualityBelow(rec, options.qmin, options.singleEndFallback))
+    if (options.qmin > 0 && averageQualityBelow(rec, options.qmin, options.singleEndFallback))
         return AVERAGE_QUAL_FAIL;
+    if (readTooShort(rec, options.minReadLength, options.singleEndFallback))
+        return READ_TOO_SHORT;
     return NONE;
 }
 

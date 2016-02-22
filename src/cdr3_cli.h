@@ -146,7 +146,6 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     addOption(parser, ArgParseOption("vcr", "v-read-crop", "Crop NUM bases from the beginning of the V read before processing it", ArgParseArgument::INTEGER));
     setMinValue(parser, "vcr", "0");
     setDefaultValue(parser, "vcr", 0);
-    addOption(parser, ArgParseOption("sfb", "single-end-fallback", "Fall back to single end analysis based on VDJ read if the V read fails the quality test (-mq)"));
 
     //================================================================================
     // V / J segment alignment (expert)
@@ -175,7 +174,7 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     //================================================================================
 
     addSection(parser, "Quality control");
-    addOption(parser, ArgParseOption("mq", "min-qual", "Minimum average read phred score.", (ArgParseArgument::INTEGER)));
+    addOption(parser, ArgParseOption("mq", "min-qual", "Minimum average read phred score. In paired end mode, this is applied to both reads. See '-sfb'.", (ArgParseArgument::INTEGER)));
     setMinValue(parser, "mq", "0");
     setMaxValue(parser, "mq", "60");
     setDefaultValue(parser, "mq", OPT_QMIN_DEFAULT);
@@ -183,6 +182,13 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     setMinValue(parser, "mcq", "0");
     setMaxValue(parser, "mcq", "60");
     setDefaultValue(parser, "mcq", OPT_QMIN_DEFAULT);
+    addOption(parser, ArgParseOption("mrl", "min-read-length", "Minimum read length. In paired end mode, this is applied to both reads. See '-sfb'.", ArgParseArgument::INTEGER));
+    setMinValue(parser, "mrl", "0");
+    setDefaultValue(parser, "mrl", 75);
+    addOption(parser, ArgParseOption("mcl", "min-cdr3-length", "Minimum CDR3 length in amino acids.", ArgParseArgument::INTEGER));
+    setMinValue(parser, "mcl", "0");
+    setDefaultValue(parser, "mcl", 5);
+    addOption(parser, ArgParseOption("sfb", "single-end-fallback", "Fall back to single end analysis based on VDJ read if V read fails -mq or -mrl."));
 
     //================================================================================
     // BARCODING
@@ -333,6 +339,8 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     getOptionValue(options.barcodeMaxError, parser, "bse");
     getOptionValue(options.bcQmin, parser, "bmq");
     getOptionValue(options.qminclust, parser, "mcq");
+    getOptionValue(options.minReadLength, parser, "mrl");
+    getOptionValue(options.minCDR3Length, parser, "mcl");
     if (isSet(parser, "pve"))
         getOptionValue(options.pairedMaxErrRateVOverlap, parser, "pve");
     else
