@@ -12,5 +12,5 @@ markdown: kramdown
 kramdown:
     input: GFM
     toc_levels: "2,3,4"
-highlighter: pygments
+highlighter: rouge
 github: [Repository metadata]
