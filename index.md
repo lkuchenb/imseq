@@ -6,6 +6,11 @@ IMSEQ is a **fast, PCR and sequencing error aware** tool to analyze high through
 
 ![IMSEQ Workflow](./images/imseq-flow.png)
 
+Please cite the following publication when you use **IMSEQ**:
+
+Kuchenbecker L, Nienen M, Hecht J, Neumann AU, Babel N, Reinert K, Robinson PN. *IMSEQ - a fast and error aware approach to immunogenetic sequence analysis*. Bioinformatics. 2015;31(18):2963–71.
+[\[PubMed\]](http://www.ncbi.nlm.nih.gov/pubmed/25987567) [\[Journal\]](http://bioinformatics.oxfordjournals.org/content/31/18/2963)
+
 ## Getting IMSEQ
 
 **IMSEQ** is freely available and its source code is made available under the [GPLv2](http://www.gnu.org/licenses/gpl-2.0.html) license. You can obtain binaries and sources for the latest release, **IMSEQ 1.0.3**, by choosing from one of the following links:
