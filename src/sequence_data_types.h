@@ -41,21 +41,23 @@ typedef Tag<PairedEnd_> PairedEnd;
  * STRUCTS AND CLASSES
  ********************************************************************************/
 
-typedef String<Dna5Q>           TQueryDataSequence;
+typedef String<Dna5>           TQueryDataSequence;
 
 template<typename T>
 struct QueryData {
-    typedef String<Dna5Q>	TSequence;
+    typedef String<Dna5>	TSequence;
 };
 
 template<>
 struct QueryData<SingleEnd> : QueryData<void> {
-    StringSet<TQueryDataSequence>       seqs;
+    StringSet<TQueryDataSequence> seqs;
+    StringSet<String<double> >    avgQVals;
 };
 
 template<>
 struct QueryData<PairedEnd> : QueryData<void> {
-    StringSet<TQueryDataSequence>       fwSeqs, revSeqs;
+    StringSet<TQueryDataSequence> fwSeqs, revSeqs;
+    StringSet<String<double> >    fwAvgQVals,revAvgQVals;
 };
 
 template<typename TSequencingSpec>

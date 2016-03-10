@@ -326,9 +326,9 @@ FastqMultiRecord<TSequencingSpec> _generic_newMultiRecord(FastqRecord<TSequencin
     return(multiRecord);
 }
 
-inline void updateMeanQualityValues(String<float> & targetQualities,
+inline void updateMeanQualityValues(String<double> & targetQualities,
         uint64_t const targetWeight,
-        String<float> const & newQualities,
+        String<double> const & newQualities,
         uint64_t const newWeight)
 {
     SEQAN_CHECK((length(targetQualities)==0 && targetWeight==0) || (length(targetQualities) == length(newQualities) && length(targetQualities) > 0), "Please report this error.");
@@ -348,7 +348,7 @@ inline void updateMeanQualityValues(String<float> & targetQualities,
  * values
  */
 template<typename TQualSequence>
-void updateMeanQualityValues(String<float> & qualities,
+void updateMeanQualityValues(String<double> & qualities,
         uint64_t const origWeight,
         TQualSequence const & seq) {
     SEQAN_CHECK((length(qualities) == 0 && origWeight == 0) || (length(qualities) == length(seq) && origWeight > 0), "Please report this error");
@@ -630,8 +630,10 @@ bool readRecords(FastqMultiRecordCollection<TSequencingSpec> & collection,
 inline QueryDataCollection<SingleEnd> buildQDCollection(String<FastqMultiRecord<SingleEnd>*> const & ptrs)
 {
     QueryDataCollection<SingleEnd> qdc;
-    for (FastqMultiRecord<SingleEnd> const * ptr : ptrs)
+    for (FastqMultiRecord<SingleEnd> const * ptr : ptrs) {
         appendValue(qdc.queryData.seqs, ptr->seq);
+        appendValue(qdc.queryData.avgQVals, ptr->qualities);
+    }
     return qdc;
 }
 
@@ -649,8 +651,11 @@ inline QueryDataCollection<PairedEnd> buildQDCollection(String<FastqMultiRecord<
         {
             appendValue(qdc.pairedQueryData.fwSeqs, ptr->fwSeq);
             appendValue(qdc.pairedQueryData.revSeqs, ptr->revSeq);
+            appendValue(qdc.pairedQueryData.fwAvgQVals, ptr->fwQualities);
+            appendValue(qdc.pairedQueryData.revAvgQVals, ptr->revQualities);
         } else {
             appendValue(qdc.singleQueryData.seqs, ptr->revSeq);
+            appendValue(qdc.singleQueryData.avgQVals, ptr->revQualities);
             appendValue(qdc.sePositions, i);
         }
     }

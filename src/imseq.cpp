@@ -50,9 +50,6 @@
 std::ofstream *__rejectLog;
 #define REJECTLOG if (__rejectLog != NULL) *__rejectLog
 
-std::ofstream *__phredStatStream;
-#define PHREDSTAT if (__phredStatStream != NULL) *__phredStatStream
-
 #define POINTERSTREAM(S) if (S != NULL) *S
 
 #include "cdr3_cli.h"

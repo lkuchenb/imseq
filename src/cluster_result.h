@@ -32,17 +32,10 @@ class ClusterResult {
 
     public:
         unsigned count;
-        String<uint64_t> sumOfQScores;
+        String<double> avgQVals;
         double qMean;
         double qSD;
         ClusterResult();
-        String<double> const & getAverageQScores() const;
-        String<double> & getWritableAverageQScores();
-        void buildAverageQScores();
-    private:
-        String<double> averageQScores;
-        bool wasChanged;
-        unsigned lastCount;
 };
 
 
@@ -52,20 +45,20 @@ class ClusterResult {
  * positions
  */
 inline void mergeWithClusterResult(ClusterResult & base, ClusterResult const & add, std::set<unsigned> const & skipPos) {
-    if (length(base.getWritableAverageQScores()) == 0)
-        resize(base.getWritableAverageQScores(), length(add.getAverageQScores()));
-    SEQAN_CHECK(length(base.getWritableAverageQScores()) == length(add.getAverageQScores()), 
+    if (length(base.avgQVals) == 0)
+        resize(base.avgQVals, length(add.avgQVals));
+    SEQAN_CHECK(length(base.avgQVals) == length(add.avgQVals), 
 	    "[ERR] mergeWithClusterResult() encountered ClusterResult instances with different qscore vector lengths. Please report this error.");
     // =1= Adjust the average quality values. Leave out the erroneous positions
     //     in the added result
     std::set<unsigned>::const_iterator skipIt = skipPos.begin();
-    for (unsigned i=0; i<length(base.getWritableAverageQScores()); ++i) {
+    for (unsigned i=0; i<length(base.avgQVals); ++i) {
         if (skipIt != skipPos.end() && i==*skipIt) {
             ++skipIt;
             continue;
         }
-        base.getWritableAverageQScores()[i] = base.count * base.getWritableAverageQScores()[i] + add.count * add.getAverageQScores()[i];
-        base.getWritableAverageQScores()[i] /= base.count + add.count;
+        base.avgQVals[i] = base.count * base.avgQVals[i] + add.count * add.avgQVals[i];
+        base.avgQVals[i] /= base.count + add.count;
     }
     // =2= Increase the count of the base result
     base.count = base.count + add.count;

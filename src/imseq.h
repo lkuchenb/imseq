@@ -115,7 +115,7 @@ struct AnalysisResult{
     Clone<Dna5>     clone;
     RejectReason    reject;
     CharString      fullOutSuffix;
-    String<uint64_t>     cdrQualities;
+    String<double>     cdrQualities;
     
     AnalysisResult(Clone<Dna5> _clone, CharString _fullOutSuffix, String<uint64_t> _cdrQualities) : clone(_clone), fullOutSuffix(_fullOutSuffix), cdrQualities(_cdrQualities) { 
         reject = NONE;
@@ -269,7 +269,7 @@ std::ostream& operator<<(std::ostream& os, Clone<T> const & clone) {
 }
 
 std::ostream& operator<<(std::ostream& os, ClusterResult const & res) {
-    os << "[count:" << res.count << "; avgquals: " << toSeparatedStringConverted(res.getAverageQScores(), '<', '>') <<  "; mean:" << res.qMean << "; sd:" << res.qSD << "]";
+    os << "[count:" << res.count << "; avgquals: " << toSeparatedStringConverted(res.avgQVals, '<', '>') <<  "; mean:" << res.qMean << "; sd:" << res.qSD << "]";
     return(os);
 }
 
@@ -441,7 +441,7 @@ inline bool checkSDDiff(CdrOptions const & options, ClusterPair const & cp, TClo
     //std::cerr << "[maxValue " << maxValue << "] ";
     for (Iterator<String<unsigned> const,Rooted>::Type errPos = begin(cp.getMinorErrPositions()); !atEnd(errPos); goNext(errPos)) {
         //std::cerr << cse->second.getAverageQScores()[*errPos] << " ";
-        if (cse->second.getAverageQScores()[*errPos] > maxValue)
+        if (cse->second.avgQVals[*errPos] > maxValue)
             return false;
     }
     //std::cerr << std::endl;
@@ -730,11 +730,11 @@ inline std::set<unsigned> const getLQPositions(TLQPositionStore & store, Cluster
     if (it != store.end())
         return(it->second);
 
-    std::pair<double,double> meanSDVals = meanSd(cluRes.getAverageQScores());
+    std::pair<double,double> meanSDVals = meanSd(cluRes.avgQVals);
     double maxVal = meanSDVals.first - options.minSdDevi * meanSDVals.second;
     std::set<unsigned> positions;
-    for (unsigned i=0; i<length(cluRes.getAverageQScores()); ++i)
-        if (cluRes.getAverageQScores()[i] <= maxVal)
+    for (unsigned i=0; i<length(cluRes.avgQVals); ++i)
+        if (cluRes.avgQVals[i] <= maxVal)
             positions.insert(i);
 
     store[&cluRes] = positions;
@@ -820,7 +820,7 @@ void dropLowQualityClusters(TCloneStore & cloneStore, double const minMeanQualit
     // Store all CTs that violate the quality condition in a container
     TRemoveString toRemove;
     for (TCloneStore::const_iterator cse = cloneStore.begin(); cse!=cloneStore.end(); ++cse) 
-        if(meanVal(cse->second.getAverageQScores()) < minMeanQuality)
+        if(meanVal(cse->second.avgQVals) < minMeanQuality)
             appendValue(toRemove, cse->first);
 
     std::cerr << "  |-- " << length(toRemove) << " out of " << length(cloneStore) << " clonotype clusters affected." << std::endl;
@@ -1540,9 +1540,6 @@ inline void _computeAlignMeta(SegmentMatch<TSeq> & match, SegmentMeta const & me
             ++errors;
             // Store the read error positions
             match.outerErrPos.push_back(toSourcePosition(readRow, pos));
-            match.mismatchPhreds[getQualityValue(convert<Dna5Q>(readRow[pos]))]++;
-        } else {
-            match.matchPhreds[getQualityValue(convert<Dna5Q>(readRow[pos]))]++;
         }
     }
 
@@ -1552,51 +1549,6 @@ inline void _computeAlignMeta(SegmentMatch<TSeq> & match, SegmentMeta const & me
     
     match.outerLen      = end - start;
     match.outerErrRate  = errors / ( 1.0 * match.outerLen );
-
-    // ============================================================================
-    // Write the mismatch counts for each score
-    // ============================================================================
-
-    PHREDSTAT << source(readRow) << "," << match.outerErrRate;
-
-    if (IsSameType<TOriSpec, RightOverlap>::VALUE) {
-        PHREDSTAT << ",R";
-    } else if (IsSameType<TOriSpec, LeftOverlap>::VALUE) {
-        PHREDSTAT << ",L";
-    } else {
-        std::cerr << "ERR" << std::endl;
-        SEQAN_ASSERT_MSG(false,"INVALID TAG");
-    }
-
-    PHREDSTAT << ",MISMATCH";
-
-    for (unsigned score = 0; score <= 60; ++score)
-        PHREDSTAT << "," << match.mismatchPhreds[score];
-
-    PHREDSTAT << std::endl;
-
-    // ============================================================================
-    // Write the match counts for each score
-    // ============================================================================
-
-    PHREDSTAT << source(readRow) << "," << match.outerErrRate;
-
-    if (IsSameType<TOriSpec, RightOverlap>::VALUE) {
-        PHREDSTAT << ",R";
-    } else if (IsSameType<TOriSpec, LeftOverlap>::VALUE) {
-        PHREDSTAT << ",L";
-    } else {
-        std::cerr << "ERR" << std::endl;
-        SEQAN_ASSERT_MSG(false,"INVALID TAG");
-    }
-
-    PHREDSTAT << ",MATCH";
-
-    for (unsigned score = 0; score <= 60; ++score)
-        PHREDSTAT << "," << match.matchPhreds[score];
-
-    PHREDSTAT << std::endl;
-
 }
 
 template <typename TSequence>
@@ -1720,21 +1672,19 @@ inline void getQualityString(String<uint64_t>& targetString, TContainer const & 
         targetString[position(ch)] = getQualityValue(*ch);
 }
 
-inline void countNewClone(TCloneStore & clusterStore, Clone<Dna5> const & clone, String<uint64_t> const & qualities) {
+inline void countNewClone(TCloneStore & clusterStore, Clone<Dna5> const & clone, String<double> const & avgQualities, unsigned const count) {
     ClusterResult& result = clusterStore[clone];
-    result.count++;
-    if (result.count == 1) { // First clone of this kind
-        result.sumOfQScores = qualities;
+    unsigned oldCount = result.count;
+    result.count += count;
+    if (result.count == count) { // First clone of this kind
+        result.avgQVals = avgQualities;
     } else {
-        if (length(qualities) != length(result.sumOfQScores)) {
+        if (length(avgQualities) != length(result.avgQVals)) {
             std::cerr << "ERROR: Quality vector lengths don't match. Please report this error!" << std::endl;
             exit(1);
         }
-        for (Iterator<String<uint64_t>, Rooted>::Type qIt = begin(result.sumOfQScores); !atEnd(qIt); goNext(qIt))  
-            (*qIt) += qualities[position(qIt)];
-
-        //TODO don't divide for each newly encountered read but only once at the end
-
+        for (Iterator<String<double>, Rooted>::Type qIt = begin(result.avgQVals); !atEnd(qIt); goNext(qIt))  
+            (*qIt) = ( *qIt * oldCount + avgQualities[position(qIt)] * count ) / static_cast<double>(result.count);
     }
 }
 
@@ -1943,7 +1893,7 @@ String<AnalysisResult> analyseReads(
     //          declared const because the SWIFT implementation doesn't allow it.
     // ============================================================================
 
-    StringSet<String<SegmentMatch<Infix<String<Dna5Q> const>::Type> > > leftMatches, rightMatches;
+    StringSet<String<SegmentMatch<Infix<String<Dna5> const>::Type> > > leftMatches, rightMatches;
 
     // Find best matching V-segments
 
@@ -2160,9 +2110,10 @@ String<AnalysisResult> analyseReads(
 
         // Store the result
         Clone<Dna5> c = { vHits, cdrInfix, jHits };
-        String<uint64_t> cdrQualities;
-        getQualityString(cdrQualities, cdrInfix);
-        AnalysisResult cr(c, CharString(fullOut.str()), cdrQualities);
+        String<double> cdrAvgQualities;
+        for (unsigned x = cdrBegin; x < cdrEnd; ++x)
+            appendValue(cdrAvgQualities, getVDJAvgQuals(queryData)[i][x]);
+        AnalysisResult cr(c, CharString(fullOut.str()), cdrAvgQualities);
 
         results[i] = cr;
 
@@ -2300,7 +2251,7 @@ void splitAnalysisResults(
         FastqMultiRecord<TSequencingSpec> const & record = *(recPtrs[i]);
         if (!ar.reject) {
             // Increase the counter for this clone
-            countNewClone(nucCloneStore, ar.clone, ar.cdrQualities);
+            countNewClone(nucCloneStore, ar.clone, ar.cdrQualities, record.ids.size());
         } else {
             for (CharString const & id : record.ids)
                 appendValue(rejectEvents, RejectEvent(id, ar.reject));
@@ -2418,11 +2369,6 @@ int runAnalysis(CdrGlobalData<TSequencingSpec> & global,
     // Write the CSV headers
     // ============================================================================
 
-    PHREDSTAT << "length,errRate,end,ismatch";
-    for (unsigned score = 0; score <= 60; ++score)
-        PHREDSTAT << "," << score;
-    PHREDSTAT << std::endl;
-
     POINTERSTREAM(global.outFiles._fullOutStream) << "seqId\tcdrBegin\tcdrEnd\tleftMatches\tleftErrPos\tleftMatchLen\trightMatches\trightErrPos\trightMatchLen\tcdrNucSeq\tcdrAASeq" << std::endl;
 
     // ============================================================================
@@ -2466,14 +2412,6 @@ int runAnalysis(CdrGlobalData<TSequencingSpec> & global,
 
     if (__rejectLog != NULL)
         writeRejectLog(*__rejectLog, rejectEvents);
-
-    // ============================================================================
-    // Compute the average quality scores
-    // ============================================================================
-
-    std::cerr << "===== Computing average quality scores per position for each clonotype\n";
-    for (TNucCloneStore::iterator it = nucCloneStore.begin(); it!=nucCloneStore.end(); ++it)
-        it->second.buildAverageQScores();
 
     // ============================================================================
     // Drop allele information if requested so
@@ -2602,7 +2540,12 @@ int main_generic(CdrGlobalData<TSequencingSpec> & global, CdrOptions & options, 
     FastqMultiRecordCollection<TSequencingSpec> collection;
     String<RejectEvent> rejectEvents;
     // Read data
-    readRecords(collection, inputInformation, rejectEvents, global.input, global.options);
+    try {
+        readRecords(collection, inputInformation, rejectEvents, global.input, global.options);
+    } catch (std::string s) {
+        std::cerr << "\n[ERROR] " << s << std::endl;
+        std::exit(1);
+    }
     // Print information
     BarcodeStats stats = getBarcodeStats(collection);
     printStats(std::cerr, rejectEvents, inputInformation, stats);

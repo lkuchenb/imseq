@@ -80,6 +80,13 @@ struct FastqRecord<SingleEnd> {
     }
 };
 
+inline void openOrExit(SeqFileIn & stream, std::string const & path)
+{
+    if (!open(stream, path.c_str())) {
+        std::cerr << "[ERROR] Cannot open '" << path << "'" << std::endl;
+        std::exit(1);
+    }
+}
 
 /**
  * SeqInputStreams can hold either one or two paths to sequence files and the
@@ -98,10 +105,10 @@ struct SeqInputStreams<SingleEnd> {
     SeqFileIn stream;
     uint64_t totalInBytes;
     SeqInputStreams<SingleEnd>(std::string path_) : path(path_), totalInBytes(0) {
-        open(stream, path.c_str());
+        openOrExit(stream, path.c_str());
     }
     SeqInputStreams<SingleEnd>(std::string path_, uint64_t totalInBytes_) : path(path_), totalInBytes(totalInBytes_) {
-        open(stream, path.c_str());
+        openOrExit(stream, path.c_str());
     }
 };
 
@@ -114,12 +121,12 @@ struct SeqInputStreams<PairedEnd> {
     SeqFileIn fwStream, revStream;
     uint64_t totalInBytes;
     SeqInputStreams<PairedEnd>(std::string fwPath_, std::string revPath_) : fwPath(fwPath_), revPath(revPath_), totalInBytes(0) {
-        open(fwStream,fwPath.c_str());
-        open(revStream,revPath.c_str());
+        openOrExit(fwStream,fwPath.c_str());
+        openOrExit(revStream,revPath.c_str());
     }
     SeqInputStreams<PairedEnd>(std::string fwPath_, std::string revPath_, uint64_t totalInBytes_) : fwPath(fwPath_), revPath(revPath_), totalInBytes(totalInBytes_) {
-        open(fwStream,fwPath.c_str());
-        open(revStream,revPath.c_str());
+        openOrExit(fwStream,fwPath.c_str());
+        openOrExit(revStream,revPath.c_str());
     }
 };
 

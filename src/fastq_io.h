@@ -228,8 +228,20 @@ inline uint64_t approxSizeInBytes(FastqRecord<PairedEnd> const & rec) {
  * @special Paired end implementation
  */
 inline void readRecord(FastqRecord<PairedEnd> & fastqRecord, SeqInputStreams<PairedEnd> & inStreams) {
-    readRecord(fastqRecord.id, fastqRecord.revSeq, inStreams.revStream);
-    readRecord(fastqRecord.id, fastqRecord.fwSeq, inStreams.fwStream);
+    try {
+        readRecord(fastqRecord.id, fastqRecord.revSeq, inStreams.revStream);
+    } catch (IOError e) {
+        throw std::string("An I/O error occurred: ") + std::string(e.what());
+    } catch (ParseError e) {
+        throw std::string("Could not parse FASTQ file '") + inStreams.revPath + std::string(" ") + std::string(e.what());
+    }
+    try {
+        readRecord(fastqRecord.id, fastqRecord.fwSeq, inStreams.fwStream);
+    } catch (IOError e) {
+        throw std::string("An I/O error occurred: ") + std::string(e.what());
+    } catch (ParseError e) {
+        throw std::string("Could not parse FASTQ file '") + inStreams.fwPath + std::string(" ") + std::string(e.what());
+    }
 }
 
 /**
@@ -237,7 +249,13 @@ inline void readRecord(FastqRecord<PairedEnd> & fastqRecord, SeqInputStreams<Pai
  * @special Single end implementation
  */
 inline void readRecord(FastqRecord<SingleEnd> & fastqRecord, SeqInputStreams<SingleEnd> & inStreams) {
-    readRecord(fastqRecord.id, fastqRecord.seq, inStreams.stream);
+    try {
+        readRecord(fastqRecord.id, fastqRecord.seq, inStreams.stream);
+    } catch (IOError e) {
+        throw std::string("An I/O error occurred: ") + std::string(e.what());
+    } catch (ParseError e) {
+        throw std::string("Could not parse FASTQ file '") + inStreams.path + std::string(" ") + std::string(e.what());
+    }
 }
 
 /**

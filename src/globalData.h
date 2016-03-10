@@ -73,9 +73,9 @@ struct BeginEndPos {
 };
 
 struct CdrReferences {
-    typedef Shape<Dna5Q, SimpleShape> TShape;
-    typedef StringSet<String<Dna5Q> >                                           TSegmentStringSet;
-    typedef StringSet<String<Dna5Q> >                                           TSegCoreFragmentStringSet;
+    typedef Shape<Dna5, SimpleShape> TShape;
+    typedef StringSet<String<Dna5> >                                           TSegmentStringSet;
+    typedef StringSet<String<Dna5> >                                           TSegCoreFragmentStringSet;
     typedef StringSet<String<unsigned> >                                        TSCFToSegIds;
     typedef Index<TSegmentStringSet, IndexQGram<TShape, OpenAddressing> >       TQGramIndex;
     typedef String<SegmentMeta>                                                 TSegmentMetas;

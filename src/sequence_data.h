@@ -140,6 +140,16 @@ inline StringSet<TQueryDataSequence> & getVDJReadSequences(QueryData<PairedEnd> 
     return qData.revSeqs;
 }
 
+inline StringSet<String<double> > & getVDJAvgQuals(QueryData<SingleEnd> & qData)
+{
+    return qData.avgQVals;
+}
+
+inline StringSet<String<double> > & getVDJAvgQuals(QueryData<PairedEnd> & qData)
+{
+    return qData.revAvgQVals;
+}
+
 inline StringSet<TQueryDataSequence> const & getVDJReadSequences(QueryData<SingleEnd> const & qData)
 {
     return qData.seqs;

@@ -54,7 +54,7 @@ struct FastqMultiRecord {};
 template<>
 struct FastqMultiRecord<SingleEnd> {
     typedef String<Dna5> TSequence;
-    typedef String<float> TQualities;
+    typedef String<double> TQualities;
     typedef std::set<CharString> TIds;
 
     TSequence   seq, bcSeq;
@@ -68,7 +68,7 @@ struct FastqMultiRecord<SingleEnd> {
 template<>
 struct FastqMultiRecord<PairedEnd> {
     typedef String<Dna5> TSequence;
-    typedef String<float> TQualities;
+    typedef String<double> TQualities;
     typedef std::set<CharString> TIds;
 
     TSequence   fwSeq, revSeq, bcSeq;

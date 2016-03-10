@@ -64,10 +64,10 @@ struct SegmentMatch : RefMatch<TSeq> {
     SegmentMatch(unsigned db_, int score_, Align<TSeq> align_) : RefMatch<TSeq>(score_, align_), db(db_) { }
 };
 
-typedef Segment<String<Dna5Q> const, InfixSegment>      _Dna5QInfixSegment;
-struct CandidateCoreSegmentMatch : RefMatch<_Dna5QInfixSegment> {
+typedef Segment<String<Dna5> const, InfixSegment>      _Dna5InfixSegment;
+struct CandidateCoreSegmentMatch : RefMatch<_Dna5InfixSegment> {
     unsigned coreSegId;
-    CandidateCoreSegmentMatch(unsigned coreSegId_, int score_, Align<_Dna5QInfixSegment> align_) : RefMatch<_Dna5QInfixSegment>(score_, align_), coreSegId(coreSegId_) { }
+    CandidateCoreSegmentMatch(unsigned coreSegId_, int score_, Align<_Dna5InfixSegment> align_) : RefMatch<_Dna5InfixSegment>(score_, align_), coreSegId(coreSegId_) { }
 };
 
 /********************************************************************************

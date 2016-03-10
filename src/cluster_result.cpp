@@ -21,26 +21,4 @@
 
 #include "cluster_result.h"
 
-ClusterResult::ClusterResult() :  count(0), qMean(-1), qSD(-1), wasChanged(false), lastCount(0) {}
-
-void ClusterResult::buildAverageQScores() {
-    if (wasChanged) {
-        std::cerr << "\n[ERR] Attempt to rebuild averageQScores after they were modified\n";
-        exit(1);
-    }
-    if (count != lastCount) {
-        resize(averageQScores, length(sumOfQScores));
-        for (unsigned i=0; i<length(sumOfQScores); ++i) 
-            averageQScores[i] = 1.0 * sumOfQScores[i] / count;
-    }
-}
-
-String<double> const & ClusterResult::getAverageQScores() const {
-    return averageQScores;
-}
-
-String<double> & ClusterResult::getWritableAverageQScores() {
-    wasChanged = true;
-    return averageQScores;
-}
-
+ClusterResult::ClusterResult() :  count(0), qMean(-1), qSD(-1) {}
