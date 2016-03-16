@@ -229,6 +229,20 @@ inline BarcodeStats getBarcodeStats(FastqMultiRecordCollection<SingleEnd> const 
     return stats;
 }
 
+inline void writeBarcodeStats(BarcodeStats const & bcStats, std::string const & path)
+{
+    std::ofstream ofs(path);
+    if (!ofs.good())
+    {
+        std::cerr << "\n[ERROR] Cannot open file '" << path << "' to write barcode stats\n";
+        std::exit(1);
+    }
+    ofs << "BarcodeSeq\tnReads\tnUniqueReads\n";
+    for (size_t i=0; i<length(bcStats.bcSeqs); ++i)
+        ofs << bcStats.bcSeqs[i] << '\t' << bcStats.nReads[i] << '\t' << bcStats.nUniqueReads[i] << '\n';
+    ofs.close();
+}
+
 /**
  * Generates BarcodeStats given a FastqMultiRecordCollection
  *

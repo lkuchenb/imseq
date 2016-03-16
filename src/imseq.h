@@ -2550,6 +2550,9 @@ int main_generic(CdrGlobalData<TSequencingSpec> & global, CdrOptions & options, 
     BarcodeStats stats = getBarcodeStats(collection);
     printStats(std::cerr, rejectEvents, inputInformation, stats);
 
+    if (options.bstPath != "")
+        writeBarcodeStats(stats, options.bstPath);
+
     // ============================================================================
     // TUNE V-SCF LENGTH, READ REFERENCE SEGMENT SEQUENCES
     // ============================================================================
@@ -2561,58 +2564,65 @@ int main_generic(CdrGlobalData<TSequencingSpec> & global, CdrOptions & options, 
     std::cerr << "  |-- Read " << length(global.references.rightSegs) << " reference J segments." << std::endl;
 
 
-    // ============================================================================
-    // COLLAPSE SIMILAR BARCODES
-    // ============================================================================
-
-    std::cerr << "===== BARCODE CORRECTION\n";
-    std::cerr << "  |-- Joining similar barcodes (" << options.barcodeMaxError << " errors allowed)" << std::endl;
-
-    clusterBarcodeSequences(collection, options);
-    stats = getBarcodeStats(collection);
-    std::cerr <<
-        "  |   ...... Number of reads read: " << stats.nTotalReads << '\n' <<
-        "  |   Number of unique read pairs: " << stats.nTotalUniqueReads << '\n';
-    compact(collection);
-
-    // ============================================================================
-    // CORRECT READS BASED ON BARCODES
-    // ============================================================================
-
-    std::cerr << "  |-- Performing barcode correction" << std::endl;
-    barcodeCorrection(collection, options);
-    stats = getBarcodeStats(collection);
-    std::cerr <<
-        "  |   ...... Number of reads read: " << stats.nTotalReads << '\n' <<
-        "  |   Number of unique read pairs: " << stats.nTotalUniqueReads << '\n';
-    compact(collection);
-
-    // ============================================================================
-    // DROP BARCODE INFORMATION
-    // ============================================================================
-
-    FastqMultiRecordCollection<TSequencingSpec> noBcCollection;
-
-    for (FastqMultiRecord<TSequencingSpec> * const recPtr : collection.multiRecordPtrs)
+    if (options.barcodeLength != 0)
     {
-        if (recPtr == NULL || recPtr->ids.empty())
-            continue;
-        FastqMultiRecord<TSequencingSpec> recCopy = *recPtr;
-        recCopy.bcSeq = "";
-        mergeRecord(noBcCollection, recCopy);
-    }
 
-    std::cerr << "  |-- Dropping barcode information" << std::endl;
-    stats = getBarcodeStats(noBcCollection);
-    std::cerr <<
-        "      ...... Number of reads read: " << stats.nTotalReads << '\n' <<
-        "      Number of unique read pairs: " << stats.nTotalUniqueReads << '\n';
+        // ============================================================================
+        // COLLAPSE SIMILAR BARCODES
+        // ============================================================================
+
+        std::cerr << "===== BARCODE CORRECTION\n";
+        std::cerr << "  |-- Joining similar barcodes (" << options.barcodeMaxError << " errors allowed)" << std::endl;
+
+        clusterBarcodeSequences(collection, options);
+        stats = getBarcodeStats(collection);
+        std::cerr <<
+            "  |   ...... Number of reads read: " << stats.nTotalReads << '\n' <<
+            "  |   Number of unique read pairs: " << stats.nTotalUniqueReads << '\n';
+        compact(collection);
+
+        // ============================================================================
+        // CORRECT READS BASED ON BARCODES
+        // ============================================================================
+
+        std::cerr << "  |-- Performing barcode correction" << std::endl;
+        barcodeCorrection(collection, options);
+        stats = getBarcodeStats(collection);
+        std::cerr <<
+            "  |   ...... Number of reads read: " << stats.nTotalReads << '\n' <<
+            "  |   Number of unique read pairs: " << stats.nTotalUniqueReads << '\n';
+        compact(collection);
+
+        // ============================================================================
+        // DROP BARCODE INFORMATION
+        // ============================================================================
+
+        FastqMultiRecordCollection<TSequencingSpec> noBcCollection;
+
+        for (FastqMultiRecord<TSequencingSpec> * const recPtr : collection.multiRecordPtrs)
+        {
+            if (recPtr == NULL || recPtr->ids.empty())
+                continue;
+            FastqMultiRecord<TSequencingSpec> recCopy = *recPtr;
+            recCopy.bcSeq = "";
+            mergeRecord(noBcCollection, recCopy);
+        }
+
+        std::cerr << "  |-- Dropping barcode information" << std::endl;
+        stats = getBarcodeStats(noBcCollection);
+        std::cerr <<
+            "      ...... Number of reads read: " << stats.nTotalReads << '\n' <<
+            "      Number of unique read pairs: " << stats.nTotalUniqueReads << '\n';
+
+        collection = noBcCollection;
+
+    }
 
     // ============================================================================
     // RUN THE CLONOTYING ANALYSIS
     // ============================================================================
 
-    return runAnalysis(global, rejectEvents, noBcCollection);
+    return runAnalysis(global, rejectEvents, collection);
 }
 
 #endif  // #ifndef SANDBOX_LKUCHENB_APPS_CDR3FINDER_CDR3FINDER_H_

@@ -38,6 +38,7 @@
 struct CdrOptions {
     CharString refFasta ;
     CharString rlogPath;
+    std::string bstPath;
     CharString aminoOut;
     CharString nucOut;
     CharString fullOut;

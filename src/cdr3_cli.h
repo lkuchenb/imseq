@@ -217,6 +217,7 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     setMinValue(parser, "bfr", "0");
     setMaxValue(parser, "bfr", "1");
     setDefaultValue(parser, "bfr", 0.02);
+    addOption(parser, ArgParseOption("bst", "barcode-stats", "Path to barcode stats output file. If empty, no file is written.", (ArgParseArgument::OUTPUT_FILE)));
 
 
     //================================================================================
@@ -318,6 +319,14 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     if (options.fullOut=="-") options.fullOut = options.outFileBaseName + ".rdt";
     getOptionValue(options.rlogPath, parser, "rlog");
     if (options.rlogPath=="-") options.rlogPath = options.outFileBaseName + ".rlg";
+
+    // -bst --barcode-stats
+    if (isSet(parser, "bst"))
+        getOptionValue(options.bstPath, parser, "bst");
+    else
+        options.bstPath = "";
+    if (options.bstPath=="-") options.bstPath = options.outFileBaseName + ".bst";
+
     options.mergeAllels = !isSet(parser, "al"); // [!] Mind the negation
     options.reverse = isSet(parser, "r");
     getOptionValue(options.trunkReads, parser, "tr");
