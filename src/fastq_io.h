@@ -233,14 +233,14 @@ inline void readRecord(FastqRecord<PairedEnd> & fastqRecord, SeqInputStreams<Pai
     } catch (IOError e) {
         throw std::string("An I/O error occurred: ") + std::string(e.what());
     } catch (ParseError e) {
-        throw std::string("Could not parse FASTQ file '") + inStreams.revPath + std::string(" ") + std::string(e.what());
+        throw std::string("Could not parse FASTQ file '") + inStreams.revPath + std::string("': ") + std::string(e.what());
     }
     try {
         readRecord(fastqRecord.id, fastqRecord.fwSeq, inStreams.fwStream);
     } catch (IOError e) {
         throw std::string("An I/O error occurred: ") + std::string(e.what());
     } catch (ParseError e) {
-        throw std::string("Could not parse FASTQ file '") + inStreams.fwPath + std::string(" ") + std::string(e.what());
+        throw std::string("Could not parse FASTQ file '") + inStreams.fwPath + std::string("': ") + std::string(e.what());
     }
 }
 
@@ -254,7 +254,7 @@ inline void readRecord(FastqRecord<SingleEnd> & fastqRecord, SeqInputStreams<Sin
     } catch (IOError e) {
         throw std::string("An I/O error occurred: ") + std::string(e.what());
     } catch (ParseError e) {
-        throw std::string("Could not parse FASTQ file '") + inStreams.path + std::string(" ") + std::string(e.what());
+        throw std::string("Could not parse FASTQ file '") + inStreams.path + std::string("': ") + std::string(e.what());
     }
 }
 
@@ -263,7 +263,7 @@ inline void readRecord(FastqRecord<SingleEnd> & fastqRecord, SeqInputStreams<Sin
  * @special Single end implementation
  */
 inline bool readRecord(FastqRecord<SingleEnd> & fastqRecord, SeqInputStreams<SingleEnd> & inStreams, bool const barcodeVDJRead, unsigned const barcodeLength) {
-    readRecord(fastqRecord.id, fastqRecord.seq, inStreams.stream);
+    readRecord(fastqRecord, inStreams);
     return splitBarcodeSeq(fastqRecord, barcodeVDJRead, barcodeLength);
 }
 
