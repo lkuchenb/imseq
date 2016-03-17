@@ -58,6 +58,7 @@ struct FastqMultiRecord<SingleEnd> {
     typedef std::set<CharString> TIds;
 
     TSequence   seq, bcSeq;
+    std::set<TSequence> bcSeqHistory;
     TQualities  qualities;
     TIds        ids;
 };
@@ -72,6 +73,7 @@ struct FastqMultiRecord<PairedEnd> {
     typedef std::set<CharString> TIds;
 
     TSequence   fwSeq, revSeq, bcSeq;
+    std::set<TSequence> bcSeqHistory;
     TQualities  fwQualities, revQualities;
     TIds        ids;
 };

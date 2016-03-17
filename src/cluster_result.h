@@ -32,6 +32,7 @@ class ClusterResult {
 
     public:
         unsigned count;
+        std::set<String<Dna5> > contribBCs;
         String<double> avgQVals;
         double qMean;
         double qSD;
@@ -62,7 +63,9 @@ inline void mergeWithClusterResult(ClusterResult & base, ClusterResult const & a
     }
     // =2= Increase the count of the base result
     base.count = base.count + add.count;
-    // =3= Invalidate the qMean and qSD (will have to be recomputed)
+    // =3= Add barcode information
+    base.contribBCs.insert(add.contribBCs.begin(), add.contribBCs.end());
+    // =4= Invalidate the qMean and qSD (will have to be recomputed)
     base.qMean = -1;
     base.qSD = -1;
     // The barcode assignments of the added result are discarded, the ones of

@@ -1192,17 +1192,59 @@ void _translateClones(std::map<Clone<AminoAcid>, ClusterResult>& aaClones, std::
         aaClone.JIds = nucClone->first.JIds;
         translate(aaClone.cdrSeq, nucClone->first.cdrSeq);
         aaClones[aaClone].count += nucClone->second.count;
+        aaClones[aaClone].contribBCs.insert(nucClone->second.contribBCs.begin(), nucClone->second.contribBCs.end());
         //TODO merge average qualities
     }
+}
+
+CharString getOutPath(CdrOptions const & options, Dna5)
+{
+    return options.nucOut;
+}
+
+CharString getOutPath(CdrOptions const & options, AminoAcid)
+{
+    return options.aminoOut;
+}
+
+CharString getBcOutPath(CdrOptions const & options, Dna5)
+{
+    return options.nucOutBc;
+}
+
+CharString getBcOutPath(CdrOptions const & options, AminoAcid)
+{
+    return options.aminoOutBc;
+}
+
+inline std::ofstream openAndCheck(CharString const & path)
+{
+    std::ofstream ofs(toCString(path));
+    if (!ofs.good())
+    {
+        std::cerr << "\n[ERROR] Cannot open output file '" << path << "'!" << std::endl;
+        std::exit(1);
+    }
+    return ofs;
 }
 
 /*
  * Writes clonotype counts to a stream
  */
 template <typename TAlphabet,typename TCdrGlobalData>
-void _writeClonotypeCounts(std::ostream& streamCounts, std::map<Clone<TAlphabet>, ClusterResult>const & cloneStore, TCdrGlobalData & global, bool translateToAA = false)  {
+void _writeClonotypeCounts(std::map<Clone<TAlphabet>, ClusterResult>const & cloneStore, TCdrGlobalData & global)  {
 
-    typedef    std::map<CharString, unsigned> TCounter;
+    CharString outPath = getOutPath(global.options, TAlphabet());
+    CharString bcOutPath = getBcOutPath(global.options, TAlphabet());
+    if (outPath == "" && bcOutPath == "")
+        return;
+
+    struct TVal
+    {
+        unsigned count;
+        std::set<String<Dna5> > contribBCs;
+    };
+    typedef    std::map<CharString, TVal> TCounter;
 
     bool mergeAllels = true;
     TCounter fingerPrintCounter;
@@ -1220,20 +1262,29 @@ void _writeClonotypeCounts(std::ostream& streamCounts, std::map<Clone<TAlphabet>
         append(fingerPrint, clone.cdrSeq);
         appendValue(fingerPrint, ':');
         _appendGeneList(fingerPrint, clone.JIds, global.references.rightMeta, mergeAllels);
-        if (translateToAA) {
-            String<AminoAcid> translatedCDR;
-            translate(translatedCDR, clone.cdrSeq);
-            appendValue(fingerPrint, '\t');
-            append(fingerPrint, translatedCDR);
-        }
-        fingerPrintCounter[fingerPrint] += storeElem->second.count;
+        TVal & value = fingerPrintCounter[fingerPrint];
+        ClusterResult const & cr = storeElem->second;
+        value.count += cr.count;
+        value.contribBCs.insert(cr.contribBCs.begin(), cr.contribBCs.end());
     }
 
     // ============================================================================
-    // Write the counts to the output streamCounts
+    // Write the counts to the output stream
     // ============================================================================
-    for (TCounter::const_iterator fpCount = fingerPrintCounter.begin(); fpCount!=fingerPrintCounter.end(); ++fpCount)
-        streamCounts << fpCount->first << '\t' << fpCount->second << std::endl;
+    if (outPath != "")
+    {
+        std::ofstream ofs = openAndCheck(outPath);
+        for (typename TCounter::const_iterator fpCount = fingerPrintCounter.begin(); fpCount!=fingerPrintCounter.end(); ++fpCount)
+            ofs << fpCount->first << '\t' << fpCount->second.count << std::endl;
+        ofs.close();
+    }
+    if (bcOutPath != "")
+    {
+        std::ofstream ofs = openAndCheck(bcOutPath);
+        for (typename TCounter::const_iterator fpCount = fingerPrintCounter.begin(); fpCount!=fingerPrintCounter.end(); ++fpCount)
+            ofs << fpCount->first << '\t' << fpCount->second.contribBCs.size() << std::endl;
+        ofs.close();
+    }
 
 }
 
@@ -1672,10 +1723,12 @@ inline void getQualityString(String<uint64_t>& targetString, TContainer const & 
         targetString[position(ch)] = getQualityValue(*ch);
 }
 
-inline void countNewClone(TCloneStore & clusterStore, Clone<Dna5> const & clone, String<double> const & avgQualities, unsigned const count) {
+inline void countNewClone(TCloneStore & clusterStore, Clone<Dna5> const & clone, String<double> const & avgQualities, unsigned const count, std::set<String<Dna5> > const & bcSeqHistory) {
     ClusterResult& result = clusterStore[clone];
     unsigned oldCount = result.count;
     result.count += count;
+    if (!bcSeqHistory.empty())
+        result.contribBCs.insert(bcSeqHistory.begin(), bcSeqHistory.end());
     if (result.count == count) { // First clone of this kind
         result.avgQVals = avgQualities;
     } else {
@@ -2251,7 +2304,7 @@ void splitAnalysisResults(
         FastqMultiRecord<TSequencingSpec> const & record = *(recPtrs[i]);
         if (!ar.reject) {
             // Increase the counter for this clone
-            countNewClone(nucCloneStore, ar.clone, ar.cdrQualities, record.ids.size());
+            countNewClone(nucCloneStore, ar.clone, ar.cdrQualities, record.ids.size(), record.bcSeqHistory);
         } else {
             for (CharString const & id : record.ids)
                 appendValue(rejectEvents, RejectEvent(id, ar.reject));
@@ -2358,11 +2411,7 @@ int runAnalysis(CdrGlobalData<TSequencingSpec> & global,
     // First pass over FASTQ input to determine read count and max length
     // ============================================================================
 
-    std::ofstream *__aminoOutStream, *__nucOutStream;
-
     initOutFileStream(options.rlogPath, __rejectLog);
-    initOutFileStream(options.aminoOut, __aminoOutStream);
-    initOutFileStream(options.nucOut, __nucOutStream);
     initOutFileStream(options.fullOut, global.outFiles._fullOutStream);
 
     // ============================================================================
@@ -2449,31 +2498,23 @@ int runAnalysis(CdrGlobalData<TSequencingSpec> & global,
     // Write the output to the specified output files
     // ============================================================================
 
-    if (__aminoOutStream != NULL) {
+    if (options.aminoOut != "") {
 
         std::map<Clone<AminoAcid>, ClusterResult> aaCloneStore;
         _translateClones(aaCloneStore, nucCloneStore);
 
         // Re-run the V/J ambiguity handling, since more clonotypes share the same
-        // CDR3 sequence on the AA level
-//        if (options.mergeIdenticalCDRs) {
-//            mergeIdenticalCDRs(aaCloneStore);
-//        }
         if (options.mergeIdenticalCDRs)
         {
             std::cerr << "===== Resolving V- and J-segment ambiguity (aminoacid-based)\n";
             resolveSegmentAmbiguity(aaCloneStore, global);
         }
-        _writeClonotypeCounts(*__aminoOutStream, aaCloneStore, global);
+        _writeClonotypeCounts(aaCloneStore, global);
     }
 
-    if (__nucOutStream != NULL) {
-        _writeClonotypeCounts(*__nucOutStream, nucCloneStore, global);
-    }
+    _writeClonotypeCounts(nucCloneStore, global);
 
     nucCloneStore.clear();
-    closeOfStream(__aminoOutStream);
-    closeOfStream(__nucOutStream);
 
     std::cerr << "===== Sorting output files\n";
 
@@ -2604,6 +2645,7 @@ int main_generic(CdrGlobalData<TSequencingSpec> & global, CdrOptions & options, 
             if (recPtr == NULL || recPtr->ids.empty())
                 continue;
             FastqMultiRecord<TSequencingSpec> recCopy = *recPtr;
+            recCopy.bcSeqHistory.insert(recCopy.bcSeq);
             recCopy.bcSeq = "";
             mergeRecord(noBcCollection, recCopy);
         }

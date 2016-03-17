@@ -218,6 +218,8 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     setMaxValue(parser, "bfr", "1");
     setDefaultValue(parser, "bfr", 0.2);
     addOption(parser, ArgParseOption("bst", "barcode-stats", "Path to barcode stats output file. If empty, no file is written.", (ArgParseArgument::OUTPUT_FILE)));
+    addOption(parser, ArgParseOption("oab", "out-amino-bc", "Output file path for translated clonotypes with barcode corrected counts.", (ArgParseArgument::OUTPUT_FILE)));
+    addOption(parser, ArgParseOption("onb", "out-nuc-bc", "Output file path for untranslated clonotypes with barcode corrected counts.", (ArgParseArgument::OUTPUT_FILE)));
 
 
     //================================================================================
@@ -326,6 +328,20 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     else
         options.bstPath = "";
     if (options.bstPath=="-") options.bstPath = options.outFileBaseName + ".bst";
+
+    // -oab --out-amino-bc
+    if (isSet(parser, "oab"))
+        getOptionValue(options.aminoOutBc, parser, "oab");
+    else
+        options.aminoOutBc = "";
+    if (options.aminoOutBc=="-") options.aminoOutBc = options.outFileBaseName + ".bact";
+
+    // -onb --out-nuc-bc
+    if (isSet(parser, "onb"))
+        getOptionValue(options.nucOutBc, parser, "onb");
+    else
+        options.nucOutBc = "";
+    if (options.nucOutBc=="-") options.nucOutBc = options.outFileBaseName + ".bnct";
 
     options.mergeAllels = !isSet(parser, "al"); // [!] Mind the negation
     options.reverse = isSet(parser, "r");

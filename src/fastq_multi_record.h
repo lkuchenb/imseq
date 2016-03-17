@@ -512,6 +512,7 @@ FastqMultiRecord<TSequencingSpec> & mergeRecord(FastqMultiRecordCollection<TSequ
         FastqMultiRecord<TSequencingSpec> & existingRec = *existingRecPtr;
         updateMeanQualityValues(existingRec, rec);
         existingRec.ids.insert(rec.ids.begin(), rec.ids.end());
+        existingRec.bcSeqHistory.insert(rec.bcSeqHistory.begin(), rec.bcSeqHistory.end());
         return existingRec;
     }
     return mapMultiRecord(collection, rec);
