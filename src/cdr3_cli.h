@@ -212,11 +212,11 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     addOption(parser, ArgParseOption("ber", "barcode-err-rate", "Maximum error rate between reads in order to be merged based on barcode sequence", (ArgParseArgument::DOUBLE)));
     setMinValue(parser, "ber", "0");
     setMaxValue(parser, "ber", "1");
-    setDefaultValue(parser, "ber", 0.03);
+    setDefaultValue(parser, "ber", 0.05);
     addOption(parser, ArgParseOption("bfr", "barcode-freq-rate", "Inclusive maximum frequency ratio between smaller and larger cluster during barcode clustering", (ArgParseArgument::DOUBLE)));
     setMinValue(parser, "bfr", "0");
     setMaxValue(parser, "bfr", "1");
-    setDefaultValue(parser, "bfr", 0.02);
+    setDefaultValue(parser, "bfr", 0.2);
     addOption(parser, ArgParseOption("bst", "barcode-stats", "Path to barcode stats output file. If empty, no file is written.", (ArgParseArgument::OUTPUT_FILE)));
 
 
