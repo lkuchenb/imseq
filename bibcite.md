@@ -1,3 +1,9 @@
+---
+layout: default
+permalink: bibcite/
+---
+
+~~~ Plaintext
 @article{Kuchenbecker15092015,
 author = {Kuchenbecker, Leon and Nienen, Mikalai and Hecht, Jochen and Neumann, Avidan U. and Babel, Nina and Reinert, Knut and Robinson, Peter N.}, 
 title = {IMSEQ—a fast and error aware approach to immunogenetic sequence analysis},
@@ -11,3 +17,4 @@ URL = {http://bioinformatics.oxfordjournals.org/content/31/18/2963.abstract},
 eprint = {http://bioinformatics.oxfordjournals.org/content/31/18/2963.full.pdf+html}, 
 journal = {Bioinformatics} 
 }
+~~~

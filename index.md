@@ -10,7 +10,7 @@ IMSEQ is a **fast, PCR and sequencing error aware** tool to analyze high through
 Please cite the following publication when you use **IMSEQ**:
 
 Kuchenbecker L, Nienen M, Hecht J, Neumann AU, Babel N, Reinert K, Robinson PN. *IMSEQ - a fast and error aware approach to immunogenetic sequence analysis*. Bioinformatics. 2015;31(18):2963–71.
-[\[PubMed\]](http://www.ncbi.nlm.nih.gov/pubmed/25987567) [\[Journal\]](http://bioinformatics.oxfordjournals.org/content/31/18/2963) [\[BibTeX\]](./bibcite.txt)
+[\[PubMed\]](http://www.ncbi.nlm.nih.gov/pubmed/25987567) [\[Journal\]](http://bioinformatics.oxfordjournals.org/content/31/18/2963) [\[BibTeX\]](./bibcite)
 </div>
 
 ## Getting IMSEQ
