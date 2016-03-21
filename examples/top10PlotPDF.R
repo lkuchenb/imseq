@@ -1,4 +1,4 @@
-#!/usr/bin/Rscript --vanilla
+#!Rscript --vanilla
 
 # (c) 2015 Charite Universtitaetsmedizin Berlin
 # Author:  Leon Kuchenbecker <lkuchenb@inf.fu-berlin.de>
@@ -40,10 +40,8 @@ top$Clonotype <- paste0("(",top$V,") ",top$cdrAA," (", top$J,")")
 top$Clonotype <- factor(top$Clonotype, levels=unique(top$Clonotype))
 
 top <- merge(top, data, all.x=T)
-pdf(outputPath)
-ggplot(top) + geom_bar(aes(x=Clonotype, y=Frequency, fill=File), stat="identity", position="dodge") + theme_bw() +
+p <- ggplot(top) + geom_bar(aes(x=Clonotype, y=Frequency, fill=File), stat="identity", position="dodge") + theme_bw() +
   theme(axis.text.x=element_text(angle=90,hjust=1)) + scale_fill_brewer(palette="Set1")
-print(last_plot())
-invisible(dev.off())
+ggsave(filename = outputPath, plot = p, width = 7, height = 7)
 
 cat("Wrote output to '", outputPath, "'.\n", sep = "")
