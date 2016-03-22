@@ -2,7 +2,7 @@ Name: imseq
 Author: Leon Kuchenbecker <lkuchenb@inf.fu-berlin.de>
 Maintainer: Leon Kuchenbecker <lkuchenb@inf.fu-berlin.de>
 License: GPL v2
-Copyright: 2015, Charite Universitaetsmedizin
+Copyright: 2016, Charite Universitaetsmedizin
 Description: IMSEQ - An immunogenetic sequence analysis tool
  IMSEQ is a tool to identify V/J gene segments as well as the cdr3 region in
  T- or B-cell genes.
