@@ -61,14 +61,41 @@ The segment sequences have to be provided in FASTA format as specified in the [I
 
 Furthermore, the user can choose to specify one of the following options:
 
- * ```-al, --with-alleles``` - Split clonotypes into different V/J alleles for ```-oa``` and ```-on```.
  * ```-rlog, --reject-log``` - _A list of IDs of rejected reads_<br/>For every rejected read, the reason for the rejection is given as one of the following:<br/>
 
-    | ```AVERAGE_QUAL_FAIL``` | The average base quality score of the read was too low (see ```-mq```) |
-    | ```MOTIF_AMBIGUOUS``` | Equally well matching segments imply different Cys/Phe triplet position |
-    | ```NONSENSE_IN_CDR3``` | CDR3 region contains STOP codon |
-    | ```OUT_OF_READING_FRAME``` | Cys and Phe are out of frame |
-    | ```SEGMENT_MATCH_FAILED``` | No V or no J segment could be identified |
+    ```AVERAGE_QUAL_FAIL```<br/>
+    The average base quality score of the read was too low (see ```-mq```)
+
+    ```MOTIF_AMBIGUOUS```<br/>
+    Equally well matching segments imply different Cys/Phe triplet position
+
+    ```NONSENSE_IN_CDR3```<br/>
+    CDR3 region contains STOP codon
+
+    ```OUT_OF_READING_FRAME```</br>
+    Cys and Phe are out of frame
+
+    ```SEGMENT_MATCH_FAILED```<br/>
+    No V or no J segment could be identified
+
+    ```BROKEN_CDR_BOUNDARIES```<br/>
+    The identified begin and end positions of the CDR3 region are out of frame
+
+    ```TOO_SHORT_FOR_BARCODE```<br/>
+    The read is shorter than the barcode length
+
+    ```LOW_QUALITY_BARCODE_BASE```<br/>
+    The barcode contains a low quality base (see ```-bmq```)
+
+    ```N_IN_BARCODE```<br/>
+    The barcode sequence contains ```N``` characters
+
+    ```READ_TOO_SHORT```<br/>
+    The read is too short (see ```-mrl```)
+
+    ```CDR3_TOO_SHORT```<br/>
+    The CDR3 region is too short (see ```-mcl```)
+ * ```-al, --with-alleles``` - Keep allele information in detailed output file specified with ```-o```.
 
 ## Read preprocessing
 
@@ -83,6 +110,7 @@ Furthermore, the user can choose to specify one of the following options:
 ## V/J segment alignment (paired-end)
 
   * ```-pve, --paired-v-error``` - _Maximum error rate for the V segment to V read alignment._<br/>The maximum error rate allowed for matching a V segment against the V-read. Default: Use value from ```-ev```.
+  * ```-vcr, --v-read-crop``` - _Crop NUM bases from the beginning of the V read before processing it_
 
 ## V/J segment alignment (Expert settings)
 
@@ -97,6 +125,21 @@ Furthermore, the user can choose to specify one of the following options:
 
   * ```-mq, --min-qual``` - _Minimum average read phred score._<br/>The minimum average base quality score required for a read to be analysed. Default: 10.
   * ```-mcq, --min-clust-qual``` - _Minimum average cluster phred score._<br/>The minimum average read phred score across an entire clonotype cluster. This filter is applied after clustering and can therefore be used to remove low quality clonotype cluster that couldn't be corrected. Default: 30.
+  * ```-mrl, --min-read-length``` - _Minimum read length. In paired end mode, this is applied to both reads. See ```-sfb```. In range [0..inf]. Default: 75._
+  * ```-mcl, --min-cdr3-length``` - _Minimum CDR3 length in amino acids. In range [0..inf]. Default: 5._
+  * ```-sfb, --single-end-fallback``` - _Fall back to single end analysis based on VDJ read if V read fails ```-mq``` or ```-mrl```._
+
+## Barcoding
+
+  * ```-bvdj, --barcode-vdj``` - _In paired end mode: Read the barcode from the VDJ read instead of the V read._
+  * ```-bse, --bcseq-max-err NUM``` - _Maximum number of errors allowed in the barcode sequence In range [0..inf]. Default: 1._
+  * ```-bmq, --bc-min-qual NUM``` - _Minimum per base quality in molecular barcode region In range [0..60]. Default: 30._
+  * ```-bcl, --barcode-length NUM``` - _Length of random barcode at the beginning of the read. A value of '0' disables barcode based correction. In range [0..inf]. Default: 0._
+  * ```-ber, --barcode-err-rate NUM``` - _Maximum error rate between reads in order to be merged based on barcode sequence In range [0..1]. Default: 0.05._
+  * ```-bfr, --barcode-freq-rate NUM``` - _Inclusive maximum frequency ratio between smaller and larger cluster during barcode clustering In range [0..1]. Default: 0.2._
+  * ```-bst, --barcode-stats FILE``` - _Path to barcode stats output file. If empty, no file is written._
+  * ```-oab, --out-amino-bc FILE``` - _Output file path for translated clonotypes with barcode corrected counts._
+  * ```-onb, --out-nuc-bc FILE``` - _Output file path for untranslated clonotypes with barcode corrected counts._
 
 ## Postprocessing / Clustering
 
