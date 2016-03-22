@@ -121,7 +121,7 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
 
     addSection(parser, "Additional output settings");
     addOption(parser, ArgParseOption("rlog", "reject-log", "Log file for rejected reads. If empty, no log file is written.", (ArgParseArgument::OUTPUT_FILE)));
-    addOption(parser, ArgParseOption("al", "with-alleles", "Include the allele information in the identified segment names, do not merge based on alleles"));
+    addOption(parser, ArgParseOption("al", "with-alleles", "Keep allele information in detailed output file specified with -o."));
 
     //================================================================================
     // V / J segment alignment
