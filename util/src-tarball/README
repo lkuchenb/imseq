@@ -25,7 +25,7 @@ To build IMSEQ, you will need
 Invoke the following commands to build IMSEQ:
 
 $ cmake ./seqan_minimal/
-$ make
+$ make imseq
 
 If you do not want to use your systems default C++ compiler, you can specify
 the path to your C++ compiler as shown in this example:

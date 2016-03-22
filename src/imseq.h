@@ -1217,10 +1217,10 @@ CharString getBcOutPath(CdrOptions const & options, AminoAcid)
     return options.aminoOutBc;
 }
 
-inline std::ofstream openAndCheck(CharString const & path)
+inline std::ofstream * openAndCheck(CharString const & path)
 {
-    std::ofstream ofs(toCString(path));
-    if (!ofs.good())
+    std::ofstream * ofs = new std::ofstream(toCString(path));
+    if (!ofs->good())
     {
         std::cerr << "\n[ERROR] Cannot open output file '" << path << "'!" << std::endl;
         std::exit(1);
@@ -1273,17 +1273,21 @@ void _writeClonotypeCounts(std::map<Clone<TAlphabet>, ClusterResult>const & clon
     // ============================================================================
     if (outPath != "")
     {
-        std::ofstream ofs = openAndCheck(outPath);
+        std::ofstream * ofsPtr = openAndCheck(outPath);
+        std::ofstream & ofs = *ofsPtr;
         for (typename TCounter::const_iterator fpCount = fingerPrintCounter.begin(); fpCount!=fingerPrintCounter.end(); ++fpCount)
             ofs << fpCount->first << '\t' << fpCount->second.count << std::endl;
         ofs.close();
+        delete ofsPtr;
     }
     if (bcOutPath != "")
     {
-        std::ofstream ofs = openAndCheck(bcOutPath);
+        std::ofstream * ofsPtr = openAndCheck(bcOutPath);
+        std::ofstream & ofs = *ofsPtr;
         for (typename TCounter::const_iterator fpCount = fingerPrintCounter.begin(); fpCount!=fingerPrintCounter.end(); ++fpCount)
             ofs << fpCount->first << '\t' << fpCount->second.contribBCs.size() << std::endl;
         ofs.close();
+        delete ofsPtr;
     }
 
 }

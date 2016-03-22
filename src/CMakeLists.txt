@@ -16,6 +16,7 @@ if(GIT_FOUND)
         COMMAND ${GIT_EXECUTABLE} describe --dirty=-dirty
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
         OUTPUT_VARIABLE DESCRIBE_BUILD
+	ERROR_QUIET
         OUTPUT_STRIP_TRAILING_WHITESPACE)
     #    string(REGEX MATCH "[0-9]+" BUILD_NUMBER ${DESCRIBE_BUILD})
 endif()
@@ -89,7 +90,7 @@ add_executable (imseq
 target_link_libraries (imseq ${SEQAN_LIBRARIES})
 
 # Add CXX flags found by find_package (SeqAn).
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SEQAN_CXX_FLAGS}")
+set (CMAKE_CXX_FLAGS "-Wno-address ${CMAKE_CXX_FLAGS} ${SEQAN_CXX_FLAGS}")
 
 # ----------------------------------------------------------------------------
 # Installation
