@@ -3,16 +3,16 @@
 // (C) Charite, Universitaetsmedizin Berlin
 // Author: Leon Kuchenbecker
 // ============================================================================
-// 
+//
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License version 2 as published by
 // the Free Software Foundation.
-// 
+//
 // This program is distributed in the hope that it will be useful, but WITHOUT
 // ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 // FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 // more details.
-// 
+//
 // You should have received a copy of the GNU General Public License along with
 // this program; if not, write to the Free Software Foundation, Inc., 51
 // Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
@@ -72,14 +72,14 @@ inline void initializeLog(Log & log, ArgumentParser& parser, std::string const &
 
 inline void parseCommandLine(CdrOptions & options, String<std::string> & inFilePaths, const int argc, const char** argv) {
 
-    ArgumentParser parser("imseq"); 
+    ArgumentParser parser("imseq");
     setVersion(parser, IMSEQ_VERSION::STRING);
     setDate(parser, "October 2015");
 
     addUsageLine(parser, "-ref <segment reference> [\\fIOPTIONS\\fP] <VDJ reads>");
     addUsageLine(parser, "-ref <segment reference> [\\fIOPTIONS\\fP] <V reads> <VDJ reads>");
-    
-    addDescription(parser, 
+
+    addDescription(parser,
             "\\fBimseq\\fP is a tool for the analysis of T- and B-cell receptor chain sequences. It can be used "
             "to analyse either single-read data, where the reads cover the V-CDR3-J region "
             "sufficiently for an identification, or paired-end data where one read covers the "
@@ -217,9 +217,9 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     setMinValue(parser, "bfr", "0");
     setMaxValue(parser, "bfr", "1");
     setDefaultValue(parser, "bfr", 0.2);
-    addOption(parser, ArgParseOption("bst", "barcode-stats", "Path to barcode stats output file. If empty, no file is written.", (ArgParseArgument::OUTPUT_FILE)));
-    addOption(parser, ArgParseOption("oab", "out-amino-bc", "Output file path for translated clonotypes with barcode corrected counts.", (ArgParseArgument::OUTPUT_FILE)));
-    addOption(parser, ArgParseOption("onb", "out-nuc-bc", "Output file path for untranslated clonotypes with barcode corrected counts.", (ArgParseArgument::OUTPUT_FILE)));
+    addOption(parser, ArgParseOption("bst", "barcode-stats", "Path to barcode stats output file. If empty, no file is written. Ignored if -bcl is 0.", (ArgParseArgument::OUTPUT_FILE)));
+    addOption(parser, ArgParseOption("oab", "out-amino-bc", "Output file path for translated clonotypes with barcode corrected counts. Ignored if -bcl is 0.", (ArgParseArgument::OUTPUT_FILE)));
+    addOption(parser, ArgParseOption("onb", "out-nuc-bc", "Output file path for untranslated clonotypes with barcode corrected counts. Ignored if -bcl is 0.", (ArgParseArgument::OUTPUT_FILE)));
 
 
     //================================================================================
@@ -268,7 +268,7 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     // ============================================================================
 
     ArgumentParser::ParseResult res = parse(parser, argc, argv);
-    if (res != ArgumentParser::PARSE_OK) 
+    if (res != ArgumentParser::PARSE_OK)
         exit(res == ArgumentParser::PARSE_ERROR);
     if (getArgumentValueCount(parser, 0) < 1 || getArgumentValueCount(parser, 0) > 2) {
         std::cerr << "You must specify exactly one or two input files!" << std::endl;
@@ -301,11 +301,11 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     CharString outFile = inFilePaths[0];
     options.outFileBaseName = toCString(outFile);
     std::string testString = options.outFileBaseName.substr(options.outFileBaseName.size()-3);
-    if (testString==".gz" || testString==".GZ" || testString==".Gz" || testString == ".gZ") 
+    if (testString==".gz" || testString==".GZ" || testString==".Gz" || testString == ".gZ")
         options.outFileBaseName = options.outFileBaseName.substr(0, options.outFileBaseName.size()-3);
     // -2- remove the last '.' separated column
     size_t periodPos = options.outFileBaseName.rfind(".");
-    if (periodPos != std::string::npos) 
+    if (periodPos != std::string::npos)
         options.outFileBaseName = options.outFileBaseName.substr(0, periodPos);
 
     // ============================================================================
@@ -322,22 +322,27 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     getOptionValue(options.rlogPath, parser, "rlog");
     if (options.rlogPath=="-") options.rlogPath = options.outFileBaseName + ".rlg";
 
+    getOptionValue(options.barcodeLength, parser, "bcl");
+    getOptionValue(options.bcClustMaxErrRate, parser, "ber");
+    getOptionValue(options.bcClustMaxFreqRate, parser, "bfr");
+    options.barcodeVDJRead = isSet(parser, "bvdj");
+
     // -bst --barcode-stats
-    if (isSet(parser, "bst"))
+    if (isSet(parser, "bst") && options.barcodeLength > 0)
         getOptionValue(options.bstPath, parser, "bst");
     else
         options.bstPath = "";
     if (options.bstPath=="-") options.bstPath = options.outFileBaseName + ".bst";
 
     // -oab --out-amino-bc
-    if (isSet(parser, "oab"))
+    if (isSet(parser, "oab") && options.barcodeLength > 0)
         getOptionValue(options.aminoOutBc, parser, "oab");
     else
         options.aminoOutBc = "";
     if (options.aminoOutBc=="-") options.aminoOutBc = options.outFileBaseName + ".bact";
 
     // -onb --out-nuc-bc
-    if (isSet(parser, "onb"))
+    if (isSet(parser, "onb") && options.barcodeLength > 0)
         getOptionValue(options.nucOutBc, parser, "onb");
     else
         options.nucOutBc = "";
@@ -359,7 +364,6 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     if (!options.vSCFLengthAuto)
         getOptionValue(options.vSCFLength, parser, "vcl");
 
-
     getOptionValue(options.qmin, parser, "mq");
     getOptionValue(options.barcodeMaxError, parser, "bse");
     getOptionValue(options.bcQmin, parser, "bmq");
@@ -374,11 +378,6 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     options.singleEndFallback = isSet(parser, "sfb");
     options.pairedMinVOverlap = 10;
     options.mergeIdenticalCDRs = isSet(parser, "ma");
-
-    getOptionValue(options.barcodeLength, parser, "bcl");
-    getOptionValue(options.bcClustMaxErrRate, parser, "ber");
-    getOptionValue(options.bcClustMaxFreqRate, parser, "bfr");
-    options.barcodeVDJRead = isSet(parser, "bvdj");
 
     // CLUSTERING
     getOptionValue(options.maxQClusterErrors, parser, "qcme");
