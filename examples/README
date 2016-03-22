@@ -4,30 +4,68 @@ IMSEQ EXAMPLES
 File Description
 ----------------
 
-The examples directory contains two example input files:
- [1] example_input_sim.fa
+The data directory contains three example input files:
+ [1] example_sim.fa
      50 simulated human TRB reads, annotated with the respective clonotype information
- [2] quality_bias_sample.fq.gz
+ [2] example_quality_bias.fq.gz
      10,000 real world reads, a sample from the data used to generate the Figure X in Y showing the
      clonotype bias in low quality reads.
+ [3] example_barcode_correction.fq.gz
+     20,000 real world reads, unspecific TRB genes from a single individual amplified using a random
+     10mer at the beginning of the reverse primer. The reads start with those 10 random nucleotides.
 
 Example IMSEQ invocations
 -------------------------
 
-# Generate a detailed analysis file for the sequences contained in 'example_input_sim.fa' and write
-# it to 'example_input_sim.tsv'. The output file contains per read clonotype information.
+[1] Simulated data
 
-imseq -r -ref ../Homo.Sapiens.TRB.fa -o output.tsv example_input_sim.fa
+# Generate a detailed analysis file for the sequences contained in 'example_input_sim.fa' and write
+# it to 'example_input_sim.tsv'. The output file contains per read clonotype information. Since the
+# V(D)J read is assumed to be from the reverse strand by default, we have to use the '-r' switch to
+# disable this behavior.
+
+$ imseq -r -ref ../Homo.Sapiens.TRB.fa -o output.tsv data/example_sim.fa
+
+[2] Quality bias demo data
 
 # Generate aminoacid clonotype counts for the sequences contained in 'quality_bias_sample.fq.gz' and
 # write them to 'MQ10QC' and 'MQ30', once using a quality threshold of 10 with quality clustering
-# and of 30 without quality clustering. The reads are reverse complementary (-r) and we want to use
-# 8 threads (-j 8).
+# and of 30 without quality clustering. We want to use 4 threads (-j 4).
 
-imseq -ref ../Homo.Sapiens.TRB.fa -j 8 -mq 10 -qc -oa MQ10QC quality_bias_sample.fq.gz
-imseq -ref ../Homo.Sapiens.TRB.fa -j 8 -mq 30 -oa MQ30 quality_bias_sample.fq.gz
+$ imseq -ref ../Homo.Sapiens.TRB.fa -j 4 -mq 10 -qc -oa MQ10QC data/example_quality_bias.fq.gz
+$ imseq -ref ../Homo.Sapiens.TRB.fa -j 4 -mq 30 -oa MQ30 data/example_quality_bias.fq.gz
 
 # Generate a bar plot for the top 10 clonotypes of MQ10QC and compare them to MQ30. Store the output
 # in 'MQ.pdf'.
 
-./top10PlotPDF.R MQ10QC MQ30 MQ.pdf
+$ ./top10PlotPDF.R MQ10QC MQ30 MQ.pdf
+
+[3] Barcode correction demo data
+
+# First, we analyse the data as if there was no barcode information. We still use the -bcl flag in
+# order to remove the barcode before the actual analysis, but set -ber 0 which disables the barcode
+# based clustering. Again, we use 4 threads (-j 4).
+
+$ imseq -ref ../Homo.Sapiens.TRB.fa -j 4 -oa NO_BC -bcl 10 -ber 0 data/example_barcode_correction.fq.gz
+
+# Now, we analyse the same data but enable the barcode based correction. We write two files, one
+# with the read counts per clonotype (-oa) and one with the barcode counts per clonotype (-oab):
+
+$ imseq -ref ../Homo.Sapiens.TRB.fa -j 4 -oa BC -oab BC_NORM -bcl 10 data/example_barcode_correction.fq.gz
+
+# How many clonotypes are detected with and without barcode based clustering?
+
+$ wc -l BC NO_BC
+575 BC
+615 NO_BC
+
+# Compare the distributions of the three different analysis results:
+
+$ ./top10PlotPDF.R NO_BC BC BC_NORM BC.pdf
+
+# Two effects are observable: Clustering clonotypes based on the barcode information slightly
+# increases the frequency of the top 10 clonotypes since the erroneous clonotypes in the tail of the
+# repertoire distribution are assigned to their correct original clonotype. If one computes the
+# distribution based on the barcode counts rather than based on the read counts, the distribution
+# flattens significantly, indicating that the most dominant clonotypes were boosted through
+# preferential amplification. Rank shifts can already be observed among the top 10 clonotypes.
