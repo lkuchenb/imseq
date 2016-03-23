@@ -6,7 +6,7 @@ permalink: tutorial/
 
 # Tutorial
 
-**IMSEQ** comes with two example input files and the reference segment files for the human T cell receptor alpha (TRA) and beta (TRB) chain genes. 
+**IMSEQ** comes with three example input files and the reference segment files for the human T cell receptor alpha (TRA) and beta (TRB) chain genes. 
 
  * TOC
 {:toc}
