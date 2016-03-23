@@ -15,11 +15,11 @@ Kuchenbecker L, Nienen M, Hecht J, Neumann AU, Babel N, Reinert K, Robinson PN. 
 
 ## Getting IMSEQ
 
-**IMSEQ** is freely available and its source code is made available under the [GPLv2](http://www.gnu.org/licenses/gpl-2.0.html) license. You can obtain binaries and sources for the latest release, **IMSEQ 1.0.3**, by choosing from one of the following links:
+**IMSEQ** is freely available and its source code is made available under the [GPLv2](http://www.gnu.org/licenses/gpl-2.0.html) license. You can obtain binaries and sources for the latest release, **IMSEQ 1.1.0**, by choosing from one of the following links:
 
- * [**IMSEQ 1.0.3 for Linux (64 bit)**](https://github.com/lkuchenb/imseq/releases/download/v1.0.3/imseq_1.0.3-linux64.tgz)<br/>Statically linked binary supporting most 64 bit Linux systems
- * [**IMSEQ 1.0.3 for OS X (64 bit)**](https://github.com/lkuchenb/imseq/releases/download/v1.0.3/imseq_1.0.3-mac64.tgz)<br/>Requires OS X 10.9 or newer
- * [**IMSEQ 1.0.3 Sourcecode**](https://github.com/lkuchenb/imseq/releases/download/v1.0.3/seqan-imseq_1.0.3-source.tgz)<br/>A source tarball of IMSEQ 1.0.3. 
+ * [**IMSEQ 1.1.0 for Linux (64 bit)**](https://github.com/lkuchenb/imseq/releases/download/v1.1.0/imseq_1.1.0-linux64.tgz)<br/>Statically linked binary supporting most 64 bit Linux systems
+ * [**IMSEQ 1.1.0 for OS X (64 bit)**](https://github.com/lkuchenb/imseq/releases/download/v1.1.0/imseq_1.1.0-mac64.tgz)<br/>Requires OS X 10.9 or newer
+ * [**IMSEQ 1.1.0 Sourcecode**](https://github.com/lkuchenb/imseq/releases/download/v1.1.0/seqan-imseq_1.1.0-source.tgz)<br/>A source tarball of IMSEQ 1.1.0. 
 
 Changes can be reviewed in the [**Changelog**](https://github.com/lkuchenb/imseq/releases/).
 
