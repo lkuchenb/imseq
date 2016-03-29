@@ -36,3 +36,14 @@ This should result in the following plot:
 <div style="text-align:center; margin-bottom:20px">
 <img alt="Tutorial 2 Result" src="/images/tut2plot.png"/>
 </div>
+
+The following clonotype counts can be observed:
+
+~~~Plaintext
+$ wc -l DEFAULT MQ10 MQ10SCQC
+     283 DEFAULT
+     437 MQ10
+     241 MQ10SCQC
+~~~
+
+With a strict quality threshold of 30, 283 clonotypes are detected. Relaxing that threshold allows for more low quality reads to be analyzed, resulting in a more diverse repertoire of 437 clonotypes. Correcting for errors in that repertoire reduces the size to 241 clonotypes.
