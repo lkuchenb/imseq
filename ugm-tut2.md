@@ -43,6 +43,6 @@ As stated in the help output, by default IMSEQ discards reads with an average qu
     1. Reduce the average quality threshold to 10
     1. Reduce the average quality threshold to 10 and enable both simple and quality clustering
 1. Plot the distribution of the top 10 clonotypes using the provided R script `top10PlotPDF.R`. Supply the lastly generated file first.
-1. How many clonotypes were detected with each configuration?
+1. How many unique clonotypes were detected with each configuration?
 
 Click [here](/ugm/tut2/solution/) to see the solution.

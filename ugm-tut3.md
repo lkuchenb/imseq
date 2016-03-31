@@ -50,7 +50,7 @@ Additionally, an extra output file format is available through the flags `-oab` 
 1. Analyse the provided example dataset `example_barcode_correction.fq.gz` in two configurations:
     1. Using the default analysis mode, i.e. without barcode correction. Write the translated clonotype counts to a file. *Note that the barcodes disrupt the analysis if IMSEQ interprets them as a valid part of the gene - you can either preprocess the file by removing them with a tool of your choice or instruct **IMSEQ** to read the barcode but correct for no errors.*
     1. Using the barcode analysis mode. In this case, write both the uncorrected and the corrected translated clonotype counts to a file.
-1. How many clonotypes are detected with and without barcode based error correction?
+1. How many unique clonotypes are detected with and without barcode based error correction?
 1. Compare the distributions of the top 10 clonotypes of the three produced files using the provided script `top10PlotPDF.R`.
 
 Click [here](/ugm/tut3/solution/) to see the solution.
