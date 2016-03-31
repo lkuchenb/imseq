@@ -3,6 +3,8 @@ layout: default
 permalink: ugm/tut3/solution/
 ---
 
+[Go back](/ugm/tut3/)
+
 # Tutorial 3 - Solution
 
 To perform the regular analysis without barcode correction, the reads can either be preprocessed, i.e. using `fastx_trimmer` from the [FASTX Toolkit](http://hannonlab.cshl.edu/fastx_toolkit/) or by specifing `-bcl 10` (causing **IMSEQ** to interpret the first 10 bases as barcode) in combination with `-ber 0` (not allowing for any correction):

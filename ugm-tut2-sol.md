@@ -3,6 +3,8 @@ layout: default
 permalink: ugm/tut2/solution/
 ---
 
+[Go back](/ugm/tut2/)
+
 # Tutorial 2 - Solution
 
 The output file for translated clonotype frequencies is specified using `-oa`. Hence, the first configuration corresponds to the following call of **IMSEQ**:
