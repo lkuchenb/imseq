@@ -1246,7 +1246,7 @@ void _writeClonotypeCounts(std::map<Clone<TAlphabet>, ClusterResult>const & clon
     };
     typedef    std::map<CharString, TVal> TCounter;
 
-    bool mergeAllels = true;
+    bool mergeAllels = global.options.mergeAllels;
     TCounter fingerPrintCounter;
 
     // ============================================================================
