@@ -1771,44 +1771,6 @@ inline void truncateRead(FastqRecord<PairedEnd> & fqRecord, unsigned len, unsign
         resize(fqRecord.revSeq, len);
 }
 
-///*
-// * Returns true if the average quality of the reverse read (paired end) or the read
-// * (single end) is above or equal the user specified threshold
-// */
-//inline bool checkQuality(FastqRecord<SingleEnd> & fqRecord, CdrOptions const & options) 
-//{
-//    double qualAvg = 0;
-//    for (unsigned pos=0; pos<length(fqRecord.seq); ++pos)
-//        qualAvg += getQualityValue(fqRecord.seq[pos]);
-//    qualAvg /= length(fqRecord.seq);
-//
-//    return (qualAvg >= options.qmin);
-//}
-//
-//inline bool checkQuality(FastqRecord<PairedEnd> & fqRecord, CdrOptions const & options) 
-//{
-//    // If the reverse (VDJ) read doesn't pass the QC, reject the record
-//    double qualAvg = 0;
-//    for (unsigned pos=0; pos<length(fqRecord.revSeq); ++pos)
-//        qualAvg += getQualityValue(fqRecord.revSeq[pos]);
-//    qualAvg /= length(fqRecord.revSeq);
-//
-//    if (qualAvg < options.qmin)
-//        return false;
-//
-//    // If the forward (V) read doesn't pass the QC, clear the sequence so
-//    // that a V-identification can still be attempted on the reverse (VDJ) read.
-//    qualAvg = 0;
-//    for (unsigned pos=0; pos<length(fqRecord.fwSeq); ++pos)
-//        qualAvg += getQualityValue(fqRecord.fwSeq[pos]);
-//    qualAvg /= length(fqRecord.fwSeq);
-//
-//    if (qualAvg < options.qmin)
-//        clear(fqRecord.fwSeq);
-//
-//    return true;
-//}
-
 inline bool inStreamsAtEnd(SeqInputStreams<PairedEnd> const & inStreams) 
 {
     bool s1End = atEnd(inStreams.fwStream);
@@ -1826,93 +1788,6 @@ inline bool inStreamsAtEnd(SeqInputStreams<PairedEnd> const & inStreams)
 inline bool inStreamsAtEnd(SeqInputStreams<SingleEnd> const & inStreams) 
 {
     return atEnd(inStreams.stream);
-}
-
-//#ifdef __WITHCDR3THREADS__
-//std::mutex MUTEX_readBlockOfRecords;
-//#endif
-//template<typename TSequencingSpec>
-//long readBlockOfHighQualityRecords(
-//        QueryDataCollection<TSequencingSpec> & queryDataCollection,
-//        SeqInputStreams<TSequencingSpec> & inStreams,
-//        CdrOptions const & options) 
-//{
-//    // ============================================================================
-//    // Locking in case of multithreading
-//    // ============================================================================
-//#ifdef __WITHCDR3THREADS__
-//    std::unique_lock<std::mutex> lock(MUTEX_readBlockOfRecords);
-//#endif
-//
-//    unsigned nReads = 0;
-//    StringSet<CharString> rejectIds;
-//
-//    if (inStreamsAtEnd(inStreams))
-//        return -1;
-//
-//    while (!inStreamsAtEnd(inStreams))
-//    {
-//        FastqRecord<TSequencingSpec> fastqRecord;
-//
-//        try {
-//            readRecord(fastqRecord, inStreams);
-//        } catch (Exception const & e) {
-//            std::cerr << "[ERR] Error reading FASTQ file: " << e.what() << std::endl;
-//            return -1;
-//        }
-//
-//        
-//        // ============================================================================
-//        // Truncate reads if requested so by the user
-//        // ============================================================================
-//
-//        truncateRead(fastqRecord, options.trunkReads, options.vReadCrop);
-//
-//        // ============================================================================
-//        // Ensure that the forward and reverse complement sequence have the same
-//        // orientation.  Swap them if the -r option was specified. In case of
-//        // single-end sequencing reverse complement the sequence if the -r option was
-//        // specified.
-//        // ============================================================================
-//
-//        syncOrientation(fastqRecord, options);
-//
-//        if (checkQuality(fastqRecord, options)) {
-//            addRecord(queryDataCollection, fastqRecord);
-//
-//            ++nReads;
-//        } else {
-//            appendValue(rejectIds, fastqRecord.id);
-//        }
-//
-//        if (nReads >= options.maxBlockSize)
-//            break;
-//
-//    }
-//    {
-//#ifdef __WITHCDR3THREADS__
-//        std::unique_lock<std::mutex> lock(MUTEX_ofstream_rejectlog);
-//#endif
-//        for (Iterator<StringSet<CharString> const, Rooted>::Type it = begin(rejectIds); !atEnd(it); goNext(it))
-//            REJECTLOG << *it << '\t' << "AVERAGE_QUAL_FAIL" << std::endl;
-//    }
-//    return length(rejectIds);
-//}
-
-
-
-// Caching works only based on the VDJ read sequence right now! TODO 
-TQueryDataSequence const getCacheStoreKey(QueryData<SingleEnd> const & qData, unsigned pos) 
-{
-    return qData.seqs[pos];
-}
-
-TQueryDataSequence const getCacheStoreKey(QueryData<PairedEnd> const & qData, unsigned pos) 
-{
-    QueryData<PairedEnd>::TSequence key;
-    append(key, qData.revSeqs[pos]);
-    append(key, qData.fwSeqs[pos]);
-    return key;
 }
 
 #ifdef __WITHCDR3THREADS__
