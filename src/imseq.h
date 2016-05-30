@@ -1794,16 +1794,16 @@ inline bool inStreamsAtEnd(SeqInputStreams<SingleEnd> const & inStreams)
 std::mutex MUTEX_processReads;
 std::mutex PCR_ERR_STAT_MUTEX;
 #endif
-template <typename TQueryData, typename TGlobal>
+template <typename TSequencingSpec, typename TGlobal>
 String<AnalysisResult> analyseReads(
-        TQueryData & queryData,       // [IN]  The query data with the reads to analyse
+        QueryData<TSequencingSpec>& queryData,       // [IN]  The query data with the reads to analyse
         TGlobal & global)             // [IN]  Global parameters and data
 {
     // ============================================================================
     // Types
     // ============================================================================
 
-    typedef typename TQueryData::TSequence                      TSequence;
+    typedef typename QueryData<TSequencingSpec>::TSequence                      TSequence;
     typedef String<AnalysisResult>                              TResults;
     typedef typename Infix<TSequence>::Type                     TInfix;
     typedef SegmentMatch<typename Infix<TSequence const>::Type> TSegmentMatch;
@@ -1812,7 +1812,6 @@ String<AnalysisResult> analyseReads(
     // Declarations
     // ============================================================================
 
-    TQueryData newQueries;
     TResults results;
     String<bool> wasCached;
     resize(results, nRecords(queryData));
@@ -1992,7 +1991,9 @@ String<AnalysisResult> analyseReads(
             String<AminoAcid> aaString;
             translate(aaString, cdrInfix);
 
-
+            // Write the full read sequence(s) if requested so
+            if (global.options.rdtWithSequence)
+                fullOut << "\t" << getTabSepSequences(queryData, i);
 
             // CDR3 boundaries - the motif position is unique, as otherwise the read would have been rejected by now
             //                fullOut << "\t" << leftMatches[readId][0].motifPos << '\t' << rightMatches[readId][0].motifPos + 2;
@@ -2278,6 +2279,22 @@ void writeRejectLog(TStream & stream, String<RejectEvent> const & rejectEvents)
     stream << std::flush;
 }
 
+inline std::string getRdtSequenceHeader(bool enabled, PairedEnd const)
+{
+    if (enabled)
+        return "\tvRead\tvdjRead";
+    else
+        return "";
+}
+
+inline std::string getRdtSequenceHeader(bool enabled, SingleEnd const)
+{
+    if (enabled)
+        return "\tread";
+    else
+        return "";
+}
+
 template<typename TSequencingSpec>
 int runAnalysis(CdrGlobalData<TSequencingSpec> & global,
         String<RejectEvent> & rejectEvents,
@@ -2297,7 +2314,7 @@ int runAnalysis(CdrGlobalData<TSequencingSpec> & global,
     // Write the CSV headers
     // ============================================================================
 
-    POINTERSTREAM(global.outFiles._fullOutStream) << "seqId\tcdrBegin\tcdrEnd\tleftMatches\tleftErrPos\tleftMatchLen\trightMatches\trightErrPos\trightMatchLen\tcdrNucSeq\tcdrAASeq" << std::endl;
+    POINTERSTREAM(global.outFiles._fullOutStream) << "seqId" << getRdtSequenceHeader(options.rdtWithSequence, TSequencingSpec()) << "\tcdrBegin\tcdrEnd\tleftMatches\tleftErrPos\tleftMatchLen\trightMatches\trightErrPos\trightMatchLen\tcdrNucSeq\tcdrAASeq" << std::endl;
 
     // ============================================================================
     // Perform the analysis
