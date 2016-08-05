@@ -1790,6 +1790,19 @@ inline bool inStreamsAtEnd(SeqInputStreams<SingleEnd> const & inStreams)
     return atEnd(inStreams.stream);
 }
 
+inline CharString getTabSepSequences(QueryData<SingleEnd> const & qData, unsigned idx)
+{
+    return qData.seqs[idx];
+}
+
+inline CharString getTabSepSequences(QueryData<PairedEnd> const & qData, unsigned idx)
+{
+    CharString joined = qData.fwSeqs[idx];
+    appendValue(joined, '\t');
+    append(joined, qData.revSeqs[idx]);
+    return joined;
+}
+
 #ifdef __WITHCDR3THREADS__
 std::mutex MUTEX_processReads;
 std::mutex PCR_ERR_STAT_MUTEX;
