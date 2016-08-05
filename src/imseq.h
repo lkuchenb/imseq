@@ -2370,7 +2370,7 @@ int runAnalysis(CdrGlobalData<TSequencingSpec> & global,
     if (options.mergeIdenticalCDRs)
     {
         std::cerr << "===== Resolving V- and J-segment ambiguity (nucleotide-based)\n";
-        resolveSegmentAmbiguity(nucCloneStore, global);
+        resolveSegmentAmbiguity(nucCloneStore);
     }
 
     // ============================================================================
@@ -2386,7 +2386,7 @@ int runAnalysis(CdrGlobalData<TSequencingSpec> & global,
         if (options.mergeIdenticalCDRs)
         {
             std::cerr << "===== Resolving V- and J-segment ambiguity (aminoacid-based)\n";
-            resolveSegmentAmbiguity(aaCloneStore, global);
+            resolveSegmentAmbiguity(aaCloneStore);
         }
         _writeClonotypeCounts(aaCloneStore, global);
     }

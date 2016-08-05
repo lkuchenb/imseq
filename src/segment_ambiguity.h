@@ -260,18 +260,12 @@ void removeAllelInformation(TCloneStore & cloneStore, CdrReferences const & refe
 /**
  * Runs segment ambiguity resolution on the passed clone store
  */
-template<typename TCloneStore, typename TGlobalData>
-void resolveSegmentAmbiguity(TCloneStore & cloneStore, TGlobalData const & global) 
+template<typename TCloneStore>
+void resolveSegmentAmbiguity(TCloneStore & cloneStore) 
 {
     typedef typename TCloneStore::key_type      TClone;
     typedef typename TClone::TAlphabet          TAlph;
     typedef typename ClonesByCDR<TAlph>::Type   TClonesByCDR;
-
-    // Reduce clone store to single-segment per allell
-    unsigned oldClones = cloneStore.size();
-    std::cerr << "  |-- Removing allel information from clonotypes\n";
-    removeAllelInformation(cloneStore, global.references);
-    std::cerr << "      Reduced from " << oldClones << " to " << cloneStore.size() << " clonotypes.\n";
 
     // Build collection with clones accessible by CDR sequence
     TClonesByCDR clonesByCDR;
@@ -281,7 +275,7 @@ void resolveSegmentAmbiguity(TCloneStore & cloneStore, TGlobalData const & globa
     
 
     // Iterate over all clonotypes
-    oldClones = cloneStore.size();
+    unsigned oldClones = cloneStore.size();
     for (typename TClonesByCDR::iterator it = clonesByCDR.begin(); it!=clonesByCDR.end(); ++it)
     {
         if (length(it->second) < 2)
