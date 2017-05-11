@@ -31,4 +31,4 @@ Build **IMSEQ**
 ### Troubleshooting
 
  - Cmake will attempt to download the SeqAn Library. If this fails or you want to use your own copy of SeqAn, invoke cmake with `-DSEQAN_ROOT=/path/to/seqan`.
- - If you want to use a compiler different from your systems default compiler, invoke cmake iwht `-DCMAKE_CXX_COMPILER=/path/to/c++`
+ - If you want to use a compiler different from your systems default compiler, invoke cmake with `-DCMAKE_CXX_COMPILER=/path/to/c++`
