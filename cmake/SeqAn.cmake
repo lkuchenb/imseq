@@ -9,8 +9,6 @@ else()
 	set ( SEQAN_MD5 "d92e2d813b4939332a9f64c97be399b9")
 	set ( SEQAN_ZIP_OUT ${CMAKE_CURRENT_BINARY_DIR}/seqan-library-2.3.2.zip )
 	set ( SEQAN_ROOT ${CMAKE_CURRENT_BINARY_DIR}/seqan-library-2.3.2 )
-	
-	message ( STATUS "SEQAN_ROOT set to '${SEQAN_ROOT}'" )
 
 	# Check if the desired version was already downloaded and unpacked. If
 	# not, perform the download and unpacking.
