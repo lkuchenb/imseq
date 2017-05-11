@@ -33,7 +33,7 @@ else()
 			file (REMOVE ${SEQAN_ZIP_OUT})
 		endif()
 	endif()
-	# Check if FindSeqAn.cmake can be found wher it should
+	# Check if FindSeqAn.cmake can be found
 	if (NOT EXISTS ${SEQAN_ROOT}/lib/cmake/seqan/seqan-config.cmake )
 		message (FATAL_ERROR "Failed to download and unpack '${SEQAN_URL}'")
 	endif()
