@@ -53,5 +53,4 @@ message ( STATUS "SeqAn_DIR='${SeqAn_DIR}'" )
 SET( SEQAN_INCLUDE_PATH ${SEQAN_ROOT}/include/ )
 
 # Load the SeqAn module and fail if not found.
-set ( SEQAN_DISABLE_VERSION_CHECK )
 find_package (SeqAn REQUIRED)

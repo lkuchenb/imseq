@@ -29,6 +29,10 @@ include_directories (${SEQAN_INCLUDE_DIRS})
 add_definitions (${SEQAN_DEFINITIONS})
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SEQAN_CXX_FLAGS}")
 
+# Disable SEQAN version check unless explicitly requested otherwise
+if ( NOT ALLOW_SEQAN_VERSION_CHECK )
+	add_definitions ( -DSEQAN_DISABLE_VERSION_CHECK )
+endif()
 
 # IMSEQ static build for Linux
 if ("${CMAKE_IMSEQ_LINUX_STATIC}" EQUAL "true")
