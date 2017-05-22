@@ -1,0 +1,15 @@
+dist: trusty
+sudo: false
+
+language: cpp
+
+os: linux
+
+compiler: g++
+
+script:
+  - mkdir build
+  - cd build
+  - cmake -DCMAKE_BUILD_TYPE=Release ..
+  - make VERBOSE=1
+  - cd ..
