@@ -1,11 +1,10 @@
-dist: trusty
 sudo: false
 
 language: cpp
 
 os: linux
 
-compiler: g++
+compiler: gcc-4.9
 
 script:
   - mkdir build
