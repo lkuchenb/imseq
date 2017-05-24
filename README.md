@@ -1,5 +1,7 @@
 # IMSEQ - An immunogenetic sequence analysis tool
 
+[![Build Status](https://travis-ci.org/lkuchenb/imseq.svg?branch=master)](https://travis-ci.org/lkuchenb/imseq)
+
 This is the source code repository for **IMSEQ**. For information about **IMSEQ** and release downloads visit www.imtools.org!
 
 ## Building **IMSEQ**
