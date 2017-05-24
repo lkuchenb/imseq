@@ -40,45 +40,20 @@
 
 using namespace seqan;
 
-/**
- * Separate sequence and barcode which is a prefix of the sequence
- * @param       seq     The original sequence to be modified
- * @param     bcSeq     The object to store the barcode sequence in
- * @param barcodeLength Length of the barcode
- */
 template<typename TSequence>
-bool splitBarcodeSeq(TSequence & seq, TSequence & bcSeq, unsigned const barcodeLength) {
-    typedef typename Infix<TSequence>::Type TInfix;
-
-    if (barcodeLength == 0)
-        return true;
-
-    if (length(seq) < barcodeLength) {
-        resize(bcSeq, 0);
+bool hammingDistAtMost(TSequence const & seqA, TSequence const & seqB, unsigned maxDist)
+{
+    if (length(seqA) != length(seqB))
         return false;
+    size_t nErrors = 0;
+    for (size_t i = 0; i<length(seqA); ++i)
+    {
+        if (seqA[i] != seqB[i])
+            ++nErrors;
+        if (nErrors > maxDist)
+            return false;
     }
-
-    TInfix bc = infix(seq, 0, barcodeLength);
-    bcSeq = bc;
-
-    TInfix seqInfix = infix(seq, barcodeLength, length(seq));
-    TSequence _seq = seqInfix;
-
-    seq = _seq;
-
     return true;
-}
-
-inline bool splitBarcodeSeq(FastqRecord<SingleEnd> & rec, bool const barcodeVDJRead, unsigned const barcodeLength) {
-    ignoreUnusedVariableWarning(barcodeVDJRead);
-    return splitBarcodeSeq(rec.seq, rec.bcSeq, barcodeLength);
-}
-
-inline bool splitBarcodeSeq(FastqRecord<PairedEnd> & rec, bool const barcodeVDJRead, unsigned const barcodeLength) {
-    if (barcodeVDJRead)
-        return splitBarcodeSeq(rec.revSeq, rec.bcSeq, barcodeLength);
-    else
-        return splitBarcodeSeq(rec.fwSeq, rec.bcSeq, barcodeLength);
 }
 
 /**
@@ -87,7 +62,7 @@ inline bool splitBarcodeSeq(FastqRecord<PairedEnd> & rec, bool const barcodeVDJR
  * error rate from that
  */
 template<typename TSequence>
-bool belowErrRate(TSequence const & seqA, TSequence const & seqB, double const   maxErrRate)
+bool belowErrRate(TSequence const & seqA, TSequence const & seqB, double const  maxErrRate)
 {
     int seqLength  = std::max(length(seqA), length(seqB));
     int maxErrors  = static_cast<int>(std::floor(maxErrRate * static_cast<double>(seqLength)));
@@ -107,9 +82,9 @@ bool belowErrRate(TSequence const & seqA, TSequence const & seqB, double const  
  */
 inline bool withinClusteringSpecs(FastqMultiRecord<SingleEnd> const & recA,
         FastqMultiRecord<SingleEnd> const & recB,
-        CdrOptions const & options)
+        double const maxErrRate)
 {
-    return belowErrRate(recA.seq, recB.seq, options.bcClustMaxErrRate);
+    return belowErrRate(recA.seq, recB.seq, maxErrRate);
 }
 
 /**
@@ -117,228 +92,66 @@ inline bool withinClusteringSpecs(FastqMultiRecord<SingleEnd> const & recA,
  */
 inline bool withinClusteringSpecs(FastqMultiRecord<PairedEnd> const & recA,
         FastqMultiRecord<PairedEnd> const & recB,
-        CdrOptions const & options)
+        double const maxErrRate)
 {
-    return belowErrRate(recA.fwSeq, recB.fwSeq, options.bcClustMaxErrRate) &&
-        belowErrRate(recA.revSeq, recB.revSeq, options.bcClustMaxErrRate);
+    return belowErrRate(recA.fwSeq, recB.fwSeq, maxErrRate) &&
+        belowErrRate(recA.revSeq, recB.revSeq, maxErrRate);
 }
 
-template<typename TSequencingSpec>
-struct FastqMultiRecordSizeComparator{
-
-    bool operator() (FastqMultiRecord<TSequencingSpec> const * const lhs,
-            FastqMultiRecord<TSequencingSpec> const * const rhs) const
-    {
-        return lhs->ids.size() > rhs->ids.size();
-    }
-
-};
+/// Mutex to be used in compareOneRead() when writing results
+static std::mutex compareOneRead_result_write;
 
 /**
- * Merge identically barcoded FastqMultiRecord given in a descendingly sorted
- * vector. The resulting vector contains FastqMultiRecord with empty ID sets
- * for those records that were reassigned to another record.
- * THREADSAFE
- */
+  * Compare one read (pair) against more abundant ones for BC clustering.
+  *
+  * Compares one read (pair) (reference record) to every more abundant read
+  * (pair) (target record) from the most frequent to the least frequent, until
+  * it finds a target record to join the reference record with. If a reference
+  * record is found, the method stores this in the passed clusterTodo vector
+  * and returns. Otherwise the clusterTodo object remains unmodified.
+  *
+  * @param clusterTodo The to-cluster pairs vector to store a result in.
+  * @param recs The underlying sequence records.
+  * @param sortedIndices The recs indices sorted from the least to the most abundant record.
+  * @param refIndex The sortedIndices index that contains the index of the reference record.
+  * @param bcDelta The maximum hamming distance of two barcodes to trigger a join
+  * @param seqErrRate The maximum pairwise sequence error rate for reads to be joined
+  * @param maxRatio The maximum ratio refRecord / tarRecord to allow a join
+  */
 template<typename TSequencingSpec>
-void mergeIdenticallyBarcoded(std::vector<FastqMultiRecord<TSequencingSpec>*> & mVector,
-        CdrOptions const & options,
-        ProgressBar * progBar = NULL)
+void compareOneRead(
+        std::vector<std::pair<size_t,size_t> > & clusterTodo,
+        std::vector<FastqMultiRecord<TSequencingSpec>*> const & sortedRecPtrs,
+        size_t const refIndex,
+        short const bcDelta,
+        double const seqErrRate,
+        double const maxRatio)
 {
     typedef FastqMultiRecord<TSequencingSpec> TMRec;
-    typedef std::vector<FastqMultiRecord<TSequencingSpec>*> TMultiVector;
+    std::vector<std::pair<size_t,size_t> > res;
 
-    uint64_t cnt = 0;
-    for (typename TMultiVector::reverse_iterator currentIt = mVector.rbegin(); currentIt != mVector.rend(); ++currentIt)
+    TMRec const & refRec = * sortedRecPtrs[refIndex];
+    for (size_t tarIndex = length(sortedRecPtrs)-1; tarIndex > refIndex; --tarIndex)
     {
-        TMRec & current = **currentIt;
-        for (typename TMultiVector::iterator largerIt = mVector.begin(); largerIt != mVector.end(); ++largerIt)
+        TMRec const & tarRec = * sortedRecPtrs[tarIndex];
+        double ratio = static_cast<double>(refRec.ids.size()) / tarRec.ids.size();
+        // If the ratio is too high, we can stop looking at additional reads,
+        // since we are iterating them in descending order
+        if (ratio > maxRatio)
+            break;
+        // If barcodes are too different, continue
+        if (!hammingDistAtMost(refRec.bcSeq, tarRec.bcSeq, bcDelta))
+            continue;
+        // Check if the read sequence(s) are similar within specs
+        if (withinClusteringSpecs(refRec, tarRec, seqErrRate))
         {
-            TMRec & larger = **largerIt;
-            // We have reached the zone of same sized FastqMultiRecords that
-            // includes the current one. Abort here, we don't want to cluster
-            // to a FastqMultiRecord of the same size
-            if ((static_cast<double>(current.ids.size()) / static_cast<double>(larger.ids.size())) >= options.bcClustMaxFreqRate) {
-                break;
-            }
-            // Check if the clustering specs are met and if so, reassign IDs
-            // and abort
-            if (withinClusteringSpecs(current, larger, options))
-            {
-                larger.ids.insert(current.ids.begin(), current.ids.end());
-                current.ids.clear();
-                break;
-            }
-        }
-        ++cnt;
-        if (progBar != NULL && cnt % 12 == 0) {
-            progBar->updateAndPrint(cnt);
-            cnt=0;
+            res.push_back(std::pair<size_t,size_t>(refIndex, tarIndex));
+            break;
         }
     }
-    progBar->updateAndPrint(cnt);
-}
-
-inline std::vector<FastqMultiRecord<SingleEnd>*> listFastqMultiRecords(FastqMultiRecordCollection<SingleEnd> & collection,
-        String<Dna5> const & bcSeq)
-{
-    typedef FastqMultiRecordCollection<SingleEnd> TColl;
-    typedef TColl::TBcMap TBcMap;
-    typedef TColl::TSeqMap TSeqMap;
-    typedef std::vector<FastqMultiRecord<SingleEnd>*> TMultiVector;
-
-    TMultiVector result;
-
-    TBcMap & bcMap = collection.bcMap;
-    TBcMap::const_iterator bcIt = bcMap.find(bcSeq);
-    if (bcIt == bcMap.end())
-        return result;
-
-    TSeqMap const & seqMap = bcIt->second;
-    for (TSeqMap::const_iterator seqIt = seqMap.begin(); seqIt != seqMap.end(); ++seqIt)
-    {
-        FastqMultiRecord<SingleEnd> * rec = collection.multiRecordPtrs[seqIt->second];
-        if (!rec->ids.empty())
-            result.push_back(rec);
-    }
-    return result;
-}
-
-inline std::vector<FastqMultiRecord<PairedEnd>*> listFastqMultiRecords(FastqMultiRecordCollection<PairedEnd> & collection,
-        String<Dna5> const & bcSeq)
-{
-    typedef FastqMultiRecordCollection<PairedEnd> TColl;
-    typedef TColl::TBcMap TBcMap;
-    typedef TColl::TFwSeqMap TFwSeqMap;
-    typedef TColl::TRevSeqMap TRevSeqMap;
-    typedef std::vector<FastqMultiRecord<PairedEnd>*> TMultiVector;
-
-    TMultiVector result;
-
-    TBcMap & bcMap = collection.bcMap;
-    TBcMap::const_iterator bcIt = bcMap.find(bcSeq);
-    if (bcIt == bcMap.end())
-        return result;
-
-    TFwSeqMap const & fwSeqMap = bcIt->second;
-    for (TFwSeqMap::const_iterator fwSeqIt = fwSeqMap.begin(); fwSeqIt != fwSeqMap.end(); ++fwSeqIt)
-    {
-        TRevSeqMap const & revSeqMap = fwSeqIt->second;
-        for (TRevSeqMap::const_iterator revSeqIt = revSeqMap.begin(); revSeqIt != revSeqMap.end(); ++revSeqIt)
-        {
-            FastqMultiRecord<PairedEnd> * rec = collection.multiRecordPtrs[revSeqIt->second];
-            if (!rec->ids.empty())
-                result.push_back(rec);
-        }
-    }
-    return result;
-}
-
-
-/**
- * Collects all FastqMultiRecords per barcode ordered by size for clustering
- * @special Single end
- */
-template<typename TSequencingSpec>
-std::vector<std::vector<FastqMultiRecord<TSequencingSpec>*> > makeBarcodeCorrectionVector(FastqMultiRecordCollection<TSequencingSpec> & collection)
-{
-    typedef FastqMultiRecordCollection<TSequencingSpec> TColl;
-    typedef typename TColl::TBcMap TBcMap;
-    typedef std::vector<FastqMultiRecord<TSequencingSpec>*> TMultiVector;
-
-    std::vector<TMultiVector> mVectors;
-    TBcMap & bcMap = collection.bcMap;
-    for (typename TBcMap::iterator bcIt = bcMap.begin(); bcIt != bcMap.end(); ++bcIt)
-    {
-        TMultiVector mVector = listFastqMultiRecords(collection, bcIt->first);
-        std::sort(mVector.begin(), mVector.end(), FastqMultiRecordSizeComparator<TSequencingSpec>());
-        mVectors.push_back(mVector);
-    }
-    return mVectors;
-}
-
-template<typename TSequence>
-bool hammingDistAtMost(TSequence const & seqA, TSequence const & seqB, unsigned maxDist)
-{
-    if (length(seqA) != length(seqB))
-        return false;
-    size_t nErrors = 0;
-    for (size_t i = 0; i<length(seqA); ++i)
-    {
-        if (seqA[i] != seqB[i])
-            ++nErrors;
-        if (nErrors > maxDist)
-            return false;
-    }
-    return true;
-}
-
-inline void printMultiRecord(FastqMultiRecord<SingleEnd> const &) {}
-
-
-inline void printMultiRecord(FastqMultiRecord<PairedEnd> const & rec)
-{
-    std::cerr << "===== FastqMultiRecord =====\nBC =" << rec.bcSeq << "\nFW =" << rec.fwSeq << "\nREV=" << rec.revSeq;
-    for (auto x : rec.ids)
-        std::cerr << "\n" << x;
-    std::cerr << "\n============================\n";
-}
-
-template <typename TSequencingSpec>
-void joinBarcodes(FastqMultiRecordCollection<TSequencingSpec> & collection,
-        String<Dna5> const & bcSeqTarget,
-        String<Dna5> const & bcSeqSource)
-{
-    typedef FastqMultiRecordCollection<TSequencingSpec> TColl;
-    typedef typename TColl::TBcMap TBcMap;
-
-    typename TBcMap::iterator targetIt = collection.bcMap.find(bcSeqTarget);
-    SEQAN_CHECK(targetIt != collection.bcMap.end(), "Please report this error.");
-    typename TBcMap::iterator sourceIt= collection.bcMap.find(bcSeqSource);
-    SEQAN_CHECK(sourceIt != collection.bcMap.end(), "Please report this error.");
-
-    // Find all records that have to be re-assigned
-    std::vector<FastqMultiRecord<TSequencingSpec>*> toReassign = listFastqMultiRecords(collection, bcSeqSource);
-
-    // Re-assign them one by one
-    for (FastqMultiRecord<TSequencingSpec> * oldMultiRec : toReassign)
-    {
-        // Insert or update record corresponding to new barcode sequence
-        FastqMultiRecord<TSequencingSpec> copy = *oldMultiRec;
-        copy.bcSeq = bcSeqTarget;
-        mergeRecord(collection, copy);
-        // Empty the old FastqMultiRecord
-        oldMultiRec->ids.clear();
-    }
-}
-
-template <typename TSequencingSpec>
-void clusterBarcodeSequences(FastqMultiRecordCollection<TSequencingSpec> & collection,
-        CdrOptions const & options)
-{
-    BarcodeStats stats = getBarcodeStats(collection);
-
-    // Order barcodes by #reads
-    BarcodeStats::TBcSeqs bcSeqs = stats.bcSeqs;
-    std::vector<size_t> idx;
-    for (size_t i=0; i<length(bcSeqs); ++i)
-        idx.push_back(i);
-    std::sort(idx.begin(), idx.end(), [&stats](size_t const A, size_t const B) {return stats.nReads[A] < stats.nReads[B];});
-
-    // Handle smallest to largest
-    for (size_t const minor_idx : idx)
-    {
-        for (std::vector<size_t>::reverse_iterator major_idx_it = idx.rbegin(); major_idx_it != idx.rend(); ++major_idx_it)
-        {
-            size_t const major_idx = *major_idx_it;
-            if (minor_idx == major_idx)
-                break;
-            if (hammingDistAtMost(bcSeqs[major_idx], bcSeqs[minor_idx], options.barcodeMaxError)) {
-                joinBarcodes(collection, bcSeqs[major_idx], bcSeqs[minor_idx]);
-                break;
-            }
-        }
-    }
+    // Store result
+    std::lock_guard<std::mutex> lock(compareOneRead_result_write);
+    clusterTodo.insert(clusterTodo.end(), res.begin(), res.end());
 }
 
 /**
@@ -350,33 +163,59 @@ template<typename TSequencingSpec>
 void barcodeCorrection(FastqMultiRecordCollection<TSequencingSpec> & collection,
         CdrOptions const & options)
 {
-    typedef std::vector<FastqMultiRecord<TSequencingSpec>*> TMultiVector;
+    typedef FastqMultiRecordCollection<TSequencingSpec> TColl;
+    typedef typename TColl::TMRec                       TMRec;
+    typedef std::pair<size_t,size_t>                    TPair;
 
-    // Collect the tasks
-    std::vector<TMultiVector> mVectors = makeBarcodeCorrectionVector(collection);
+    std::cerr << "      Sorting unique reads by frequency" << std::endl;
 
-    // Execute them in parallel
-    BarcodeStats stats = getBarcodeStats(collection);
-    ProgressBar progBar(std::cerr, stats.nTotalUniqueReads , 100, "      ");
-    progBar.print_progress();
+    // Sort the Record indices by record abundance
+    std::vector<TMRec*> sortedRecPtrs;
+    sortedRecPtrs.reserve(length(collection.multiRecords));
+    for (TMRec & rec : collection.multiRecords)
+        sortedRecPtrs.push_back(&rec);
+
+    std::sort(sortedRecPtrs.begin(), sortedRecPtrs.end(),
+            [& collection](TMRec const * a, TMRec const * b) -> bool {
+            return a->ids.size() < b->ids.size();
+            });
+
+    // From least to most abundant
+    std::vector<TPair> todoPairs;
+
+    std::cerr << "      Pairwise UMI and read comparison" << std::endl;
 
     { // Scope for ThreadPool which joins threads on destruct
 #ifdef __WITHCDR3THREADS__
         ThreadPool threadPool(options.jobs);
 #endif
-        for (TMultiVector & mVector : mVectors)
+        for (size_t i = 0; i < sortedRecPtrs.size(); ++i)
+        {
 #ifdef __WITHCDR3THREADS__
-            threadPool.enqueue<void>([&]()
+            threadPool.enqueue<void>([i,&todoPairs,&collection,&sortedRecPtrs, &options]()
                     {
 #endif
-                    mergeIdenticallyBarcoded(mVector, options, & progBar);
+                    compareOneRead(todoPairs, sortedRecPtrs, i, options.barcodeMaxError, options.bcClustMaxErrRate, options.bcClustMaxFreqRate);
 #ifdef __WITHCDR3THREADS__
-                    }
-                    );
+                    });
 #endif
-    }
+        }
+    } // End ThreadPool
 
-    progBar.clear();
+
+    std::cerr << "      Merging identified pairs of reads" << std::endl;
+
+    std::sort(todoPairs.begin(), todoPairs.end(), [](TPair const & a, TPair const & b) -> bool { return a.second < b.second; });
+
+    for (auto & todoPair : todoPairs)
+    {
+        TMRec & refRec = * sortedRecPtrs[todoPair.first];
+        TMRec & tarRec = * sortedRecPtrs[todoPair.second];
+        tarRec.ids.insert(refRec.ids.begin(), refRec.ids.end());
+        refRec.ids.clear();
+        // Should be empty
+        tarRec.bcSeqHistory.insert(refRec.bcSeqHistory.begin(), refRec.bcSeqHistory.end());
+    }
 }
 
 #endif

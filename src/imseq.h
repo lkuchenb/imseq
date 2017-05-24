@@ -2120,10 +2120,10 @@ std::mutex MUTEX_write_global_results;
 #endif
 template<typename TSeqSpec>
 void processReads(
-        String<AnalysisResult> & results,  // OUT: The map of clone counts to insert the results into
+        typename Iterator<String<AnalysisResult>, Rooted>::Type & resultIt,  // OUT: The map of clone counts to insert the results into
         ProgressBar& progBar,       //  IN: The ProgressBar object to report to
-        FastqMultiRecordCollection<TSeqSpec> & collection,
-        size_t & processed,
+        typename FastqMultiRecordCollection<TSeqSpec>::TRecListIt & beginIt,
+        typename FastqMultiRecordCollection<TSeqSpec>::TRecListIt & endIt,
         CdrGlobalData<TSeqSpec> & global)           //  IN: The user specified parameters
 {
     typedef QueryDataCollection<TSeqSpec>  TQueryDataCollection;
@@ -2133,28 +2133,27 @@ void processReads(
         // Extract block of records for analysis
         // ============================================================================
 
-        String<FastqMultiRecord<TSeqSpec>*> todo;
+        String<FastqMultiRecord<TSeqSpec> const *> todo;
         TQueryDataCollection qdataColl;
-        size_t first_idx;
+        typename Iterator<String<AnalysisResult>, Rooted>::Type localResultIt;
         { // Scope for lock
 #ifdef __WITHCDR3THREADS__
             std::unique_lock<std::mutex> lock(MUTEX_take_from_multicollection);
 #endif
-            // Detect, how man items have to be processed
-            size_t n_items = std::min<size_t>(length(collection.multiRecordPtrs) - processed, global.options.maxBlockSize);
+            localResultIt = resultIt;
+            uint64_t n_items = 0;
+            for (; beginIt != endIt && n_items < global.options.maxBlockSize; ++beginIt, ++resultIt)
+            {
+                appendValue(todo, &(*beginIt));
+                ++n_items;
+            }
 
             // Break loop if we are finished
             if (n_items == 0)
                 break;
 
-            // Store items that have to be processed
-            first_idx = processed;
-            for (size_t i = 0; i < n_items; ++i) {
-                appendValue(todo, collection.multiRecordPtrs[i+processed]);
-            }
             qdataColl = buildQDCollection(todo);
-            processed += n_items;
-        }
+        } // END MUTEX_take_from_multicollection
 
         // ============================================================================
         // Perform the actual analysis
@@ -2173,9 +2172,13 @@ void processReads(
 #endif
             for (AnalysisResult const & ar : results_block)
             {
-                results[first_idx++] = ar;
+                if (localResultIt->reject != NONE  // We are overwriting prev data
+                        || ! empty(localResultIt->fullOutSuffix)  // We are overwriting prev data
+                        || atEnd(localResultIt)) throw std::runtime_error("Unknown error"); // Our iterator is where it shouldn't be
+                *localResultIt = ar;
+                ++localResultIt;
             }
-        }
+        } // END MUTEX_write_global_results
 
 
     }
@@ -2186,15 +2189,16 @@ void splitAnalysisResults(
         std::map<Clone<Dna5>, ClusterResult> & nucCloneStore,
         String<RejectEvent> & rejectEvents,
         String<AnalysisResult> const & results,
-        String<FastqMultiRecord<TSequencingSpec>*> const & recPtrs
+        std::list<FastqMultiRecord<TSequencingSpec> > const & recList
         )
 {
+    auto recIt = recList.begin();
     nucCloneStore.clear();
     clear(rejectEvents);
-    for (size_t i = 0; i<length(results); ++i)
+    for (size_t i = 0; i<length(results); ++i, ++recIt)
     {
         AnalysisResult const & ar = results[i];
-        FastqMultiRecord<TSequencingSpec> const & record = *(recPtrs[i]);
+        FastqMultiRecord<TSequencingSpec> const & record = *recIt;
         if (!ar.reject) {
             // Increase the counter for this clone
             countNewClone(nucCloneStore, ar.clone, ar.cdrQualities, record.ids.size(), record.bcSeqHistory);
@@ -2209,14 +2213,15 @@ template <typename TSequencingSpec>
 void writeRDTFile(
         CdrGlobalData<TSequencingSpec> & global,
         String<AnalysisResult> const & results,
-        String<FastqMultiRecord<TSequencingSpec>*> const & recPtrs
+        std::list<FastqMultiRecord<TSequencingSpec> > const & recList
         )
 {
-    for (size_t i=0; i<length(results); ++i) {
+    auto recIt = recList.begin();
+    for (size_t i=0; i<length(results); ++i, ++recIt) {
         AnalysisResult const & ar = results[i];
         if (ar.reject)
             continue;
-        FastqMultiRecord<TSequencingSpec> & rec = *recPtrs[i];
+        FastqMultiRecord<TSequencingSpec> const & rec = *recIt;
         for (CharString const & id : rec.ids) {
             *global.outFiles._fullOutStream << id << ar.fullOutSuffix;
         }
@@ -2240,6 +2245,10 @@ String<AnalysisResult> runCDR3Analysis(
         CdrGlobalData<TSequencingSpec> & global                   //  IN: The user specified parameters
         )
 {
+    typedef FastqMultiRecordCollection<TSequencingSpec> TColl;
+    typedef typename TColl::TRecList TRecList;
+    typedef typename TRecList::const_iterator TRecListIt;
+
     // ============================================================================
     // Status message
     // ============================================================================
@@ -2251,7 +2260,7 @@ String<AnalysisResult> runCDR3Analysis(
     // user. Initialize the progress bar shown at the command prompt.
     // ============================================================================
 
-    ProgressBar progBar(std::cerr, length(collection.multiRecordPtrs), 100, "      ");
+    ProgressBar progBar(std::cerr, length(collection.multiRecords), 100, "      ");
     progBar.print_progress();
 
     // ============================================================================
@@ -2261,16 +2270,18 @@ String<AnalysisResult> runCDR3Analysis(
     // SequenceStream is exhausted, i.e. no more reads are available.
     // ============================================================================
 
-    size_t processed = 0;
+    TRecListIt nextBegin = collection.multiRecords.begin();
+    TRecListIt endIt = collection.multiRecords.end();
     String<AnalysisResult> results;
-    resize(results, length(collection.multiRecordPtrs));
+    resize(results, collection.multiRecords.size());
+    Iterator<String<AnalysisResult>, Rooted>::Type resultsIt = begin(results);
 #ifdef __WITHCDR3THREADS__
     std::vector<std::thread> threads;
     for (int w=0; w < global.options.jobs; ++w)
         threads.push_back(std::thread(
                 [&]() {
 #endif
-                processReads(results , progBar, collection, processed, global);
+                processReads(resultsIt , progBar, nextBegin, endIt, global);
 #ifdef __WITHCDR3THREADS__
                 }
                 ));
@@ -2346,7 +2357,7 @@ int runAnalysis(CdrGlobalData<TSequencingSpec> & global,
     typedef std::map<Clone<Dna5>, ClusterResult> TNucCloneStore;
     TNucCloneStore nucCloneStore;
     String<RejectEvent> newRejectEvents;
-    splitAnalysisResults(nucCloneStore, newRejectEvents, results, collection.multiRecordPtrs);
+    splitAnalysisResults(nucCloneStore, newRejectEvents, results, collection.multiRecords);
     append(rejectEvents, newRejectEvents);
 
     // ============================================================================
@@ -2362,7 +2373,7 @@ int runAnalysis(CdrGlobalData<TSequencingSpec> & global,
     // ============================================================================
 
     if (global.outFiles._fullOutStream != NULL)
-        writeRDTFile(global, results, collection.multiRecordPtrs);
+        writeRDTFile(global, results, collection.multiRecords);
 
     // ============================================================================
     // Write reject information if requested
@@ -2460,11 +2471,11 @@ void printStats(TStream & stream, String<RejectEvent> const & rejectEvents,
         BarcodeStats const & stats)
 {
     stream <<
-        "  |   ...... Number of reads read: " << ii.totalReadCount << '\n' <<
+        "  |   ........... Number of reads: " << ii.totalReadCount << '\n' <<
         "  |   .................. Rejected: " << length(rejectEvents) << '\n' <<
         "  |   .. Max read length (passed): " << ii.maxReadLength << '\n' << 
         "  |   .. Min read length (passed): " << ii.minReadLength << '\n' <<
-        "  |   Number of unique read pairs: " << stats.nTotalUniqueReads << '\n';
+        "  |   .... Number of unique reads: " << stats.nTotalUniqueReads << '\n';
 }
 
 inline void printPerBarcodeStats(BarcodeStats const & stats)
@@ -2516,21 +2527,6 @@ int main_generic(CdrGlobalData<TSequencingSpec> & global, CdrOptions & options, 
 
     if (options.barcodeLength != 0)
     {
-
-        // ============================================================================
-        // COLLAPSE SIMILAR BARCODES
-        // ============================================================================
-
-        std::cerr << "===== BARCODE CORRECTION\n";
-        std::cerr << "  |-- Joining similar barcodes (" << options.barcodeMaxError << " errors allowed)" << std::endl;
-
-        clusterBarcodeSequences(collection, options);
-        stats = getBarcodeStats(collection);
-        std::cerr <<
-            "  |   ...... Number of reads read: " << stats.nTotalReads << '\n' <<
-            "  |   Number of unique read pairs: " << stats.nTotalUniqueReads << '\n';
-        compact(collection);
-
         // ============================================================================
         // CORRECT READS BASED ON BARCODES
         // ============================================================================
@@ -2539,8 +2535,8 @@ int main_generic(CdrGlobalData<TSequencingSpec> & global, CdrOptions & options, 
         barcodeCorrection(collection, options);
         stats = getBarcodeStats(collection);
         std::cerr <<
-            "  |   ...... Number of reads read: " << stats.nTotalReads << '\n' <<
-            "  |   Number of unique read pairs: " << stats.nTotalUniqueReads << '\n';
+            "  |   ........... Number of reads: " << stats.nTotalReads << '\n' <<
+            "  |   .... Number of unique reads: " << stats.nTotalUniqueReads << '\n';
         compact(collection);
 
         // ============================================================================
@@ -2549,11 +2545,11 @@ int main_generic(CdrGlobalData<TSequencingSpec> & global, CdrOptions & options, 
 
         FastqMultiRecordCollection<TSequencingSpec> noBcCollection;
 
-        for (FastqMultiRecord<TSequencingSpec> * const recPtr : collection.multiRecordPtrs)
+        for (FastqMultiRecord<TSequencingSpec> const & rec : collection.multiRecords)
         {
-            if (recPtr == NULL || recPtr->ids.empty())
+            if (rec.ids.empty())
                 continue;
-            FastqMultiRecord<TSequencingSpec> recCopy = *recPtr;
+            FastqMultiRecord<TSequencingSpec> recCopy = rec;
             recCopy.bcSeqHistory.insert(recCopy.bcSeq);
             recCopy.bcSeq = "";
             mergeRecord(noBcCollection, recCopy);
@@ -2562,8 +2558,8 @@ int main_generic(CdrGlobalData<TSequencingSpec> & global, CdrOptions & options, 
         std::cerr << "  |-- Dropping barcode information" << std::endl;
         stats = getBarcodeStats(noBcCollection);
         std::cerr <<
-            "      ...... Number of reads read: " << stats.nTotalReads << '\n' <<
-            "      Number of unique read pairs: " << stats.nTotalUniqueReads << '\n';
+            "      ........... Number of reads: " << stats.nTotalReads << '\n' <<
+            "      .... Number of unique reads: " << stats.nTotalUniqueReads << '\n';
 
         collection = noBcCollection;
 

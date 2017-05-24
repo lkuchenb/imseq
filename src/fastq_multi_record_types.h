@@ -28,7 +28,7 @@
 #define IMSEQ_FASTQ_MULTI_RECORD_TYPES_H
 
 #include <map>
-#include <unordered_map>
+#include <list>
 #include <limits>
 
 #include <seqan/basic.h>
@@ -82,43 +82,50 @@ struct FastqMultiRecord<PairedEnd> {
  - FastqMultiRecordCollection
  -------------------------------------------------------------------------------*/
 
-struct DnaStringHash
-{
-    static std::hash<std::string> const hash_fun;
-    size_t operator()(String<Dna5> const & str) const;
-};
+//struct DnaStringHash
+//{
+//    static std::hash<std::string> const hash_fun;
+//    size_t operator()(String<Dna5> const & str) const;
+//};
 
 template<typename T>
 struct FastqMultiRecordCollection {};
 
 template<>
 struct FastqMultiRecordCollection<SingleEnd> {
+
+    typedef FastqMultiRecord<SingleEnd>         TMRec;
+    typedef std::list<TMRec>                    TRecList;
+    typedef std::list<TMRec>::const_iterator    TRecListIt;
+    typedef std::set<TMRec*> TPtrSet;
+
     static uint64_t const NO_MATCH = std::numeric_limits<uint64_t>::max();
 
-//    typedef std::unordered_map<FastqMultiRecord<SingleEnd>::TSequence, unsigned, DnaStringHash> TSeqMap;
-//    typedef std::unordered_map<FastqMultiRecord<SingleEnd>::TSequence, TSeqMap, DnaStringHash> TBcMap;
+    typedef std::map<TMRec::TSequence, TPtrSet> TSeqMap;
+    typedef std::map<TMRec::TSequence, TPtrSet> TBcMap;
 
-    typedef std::map<FastqMultiRecord<SingleEnd>::TSequence, unsigned> TSeqMap;
-    typedef std::map<FastqMultiRecord<SingleEnd>::TSequence, TSeqMap> TBcMap;
-
-    String<FastqMultiRecord<SingleEnd>*> multiRecordPtrs;
+    TRecList multiRecords;
     TBcMap bcMap;
+    TSeqMap seqMap;
 };
 
 template<>
 struct FastqMultiRecordCollection<PairedEnd> {
     static uint64_t const NO_MATCH = std::numeric_limits<uint64_t>::max();
 
-//    typedef std::unordered_map<FastqMultiRecord<PairedEnd>::TSequence, unsigned, DnaStringHash> TRevSeqMap;
-//    typedef std::unordered_map<FastqMultiRecord<PairedEnd>::TSequence, TRevSeqMap, DnaStringHash> TFwSeqMap;
-//    typedef std::unordered_map<FastqMultiRecord<PairedEnd>::TSequence, TFwSeqMap, DnaStringHash> TBcMap;
+    typedef FastqMultiRecord<PairedEnd>         TMRec;
+    typedef std::list<TMRec>                    TRecList;
+    typedef std::list<TMRec>::const_iterator    TRecListIt;
+    typedef std::set<TMRec*> TPtrSet;
 
-    typedef std::map<FastqMultiRecord<PairedEnd>::TSequence, unsigned> TRevSeqMap;
-    typedef std::map<FastqMultiRecord<PairedEnd>::TSequence, TRevSeqMap> TFwSeqMap;
-    typedef std::map<FastqMultiRecord<PairedEnd>::TSequence, TFwSeqMap> TBcMap;
+    typedef std::map<TMRec::TSequence, TPtrSet> TRevSeqMap;
+    typedef std::map<TMRec::TSequence, TPtrSet> TFwSeqMap;
+    typedef std::map<TMRec::TSequence, TPtrSet> TBcMap;
 
-    String<FastqMultiRecord<PairedEnd>*> multiRecordPtrs;
+    TRecList multiRecords;
     TBcMap bcMap;
+    TFwSeqMap fwSeqMap;
+    TRevSeqMap revSeqMap;
 };
 
 /*-------------------------------------------------------------------------------

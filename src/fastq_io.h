@@ -54,6 +54,47 @@
  ********************************************************************************/
 
 /**
+ * Separate sequence and barcode which is a prefix of the sequence
+ * @param       seq     The original sequence to be modified
+ * @param     bcSeq     The object to store the barcode sequence in
+ * @param barcodeLength Length of the barcode
+ */
+template<typename TSequence>
+bool splitBarcodeSeq(TSequence & seq, TSequence & bcSeq, unsigned const barcodeLength) {
+    typedef typename Infix<TSequence>::Type TInfix;
+
+    if (barcodeLength == 0)
+        return true;
+
+    if (length(seq) < barcodeLength) {
+        resize(bcSeq, 0);
+        return false;
+    }
+
+    TInfix bc = infix(seq, 0, barcodeLength);
+    bcSeq = bc;
+
+    TInfix seqInfix = infix(seq, barcodeLength, length(seq));
+    TSequence _seq = seqInfix;
+
+    seq = _seq;
+
+    return true;
+}
+
+inline bool splitBarcodeSeq(FastqRecord<SingleEnd> & rec, bool const barcodeVDJRead, unsigned const barcodeLength) {
+    ignoreUnusedVariableWarning(barcodeVDJRead);
+    return splitBarcodeSeq(rec.seq, rec.bcSeq, barcodeLength);
+}
+
+inline bool splitBarcodeSeq(FastqRecord<PairedEnd> & rec, bool const barcodeVDJRead, unsigned const barcodeLength) {
+    if (barcodeVDJRead)
+        return splitBarcodeSeq(rec.revSeq, rec.bcSeq, barcodeLength);
+    else
+        return splitBarcodeSeq(rec.fwSeq, rec.bcSeq, barcodeLength);
+}
+
+/**
  * Computes the size of an input file
  */
 inline uint64_t computeFileSize(std::string const & path) {
