@@ -75,7 +75,7 @@ std::future<T> ThreadPool::enqueue(F f)
 {
     // don't allow enqueueing after stopping the pool
     if(stop)
-        throw std::runtime_error("enqueue on stopped ThreadPool");
+        throw std::runtime_error("ThreadPool::enqueue()[E001]");
 
     auto task = std::make_shared< std::packaged_task<T()> >(f);
     std::future<T> res = task->get_future();    

@@ -92,30 +92,37 @@ int main(int argc, char ** argv)
     // Call the workflow
     // ============================================================================
 
-    if (options.pairedEnd)
+    try
     {
-        SeqInputStreams<PairedEnd> is(
-                inFilePaths[0],
-                inFilePaths[1],
-                computeFileSize(inFilePaths[0]) + computeFileSize(inFilePaths[1]));
-        CdrGlobalData<PairedEnd> global(
-                options,
-                references,
-                is,
-                outFiles
-                );
-        return main_generic(global, options, references);
-    } else {
-        SeqInputStreams<SingleEnd> is(
-                inFilePaths[0],
-                computeFileSize(inFilePaths[0]));
-        CdrGlobalData<SingleEnd> global(
-                options,
-                references,
-                is,
-                outFiles
-                );
-        return main_generic(global, options, references);
+        if (options.pairedEnd)
+        {
+            SeqInputStreams<PairedEnd> is(
+                    inFilePaths[0],
+                    inFilePaths[1],
+                    computeFileSize(inFilePaths[0]) + computeFileSize(inFilePaths[1]));
+            CdrGlobalData<PairedEnd> global(
+                    options,
+                    references,
+                    is,
+                    outFiles
+                    );
+            return main_generic(global, options, references);
+        } else {
+            SeqInputStreams<SingleEnd> is(
+                    inFilePaths[0],
+                    computeFileSize(inFilePaths[0]));
+            CdrGlobalData<SingleEnd> global(
+                    options,
+                    references,
+                    is,
+                    outFiles
+                    );
+            return main_generic(global, options, references);
+        }
     }
-
+    catch (std::exception const & e)
+    {
+        std::cerr << "\nAn unexpected error has occurred: " << e.what() << "\nPlease report this error at https://github.com/lkuchenb/imseq\n";
+        std::exit(1);
+    }
 }
