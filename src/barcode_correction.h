@@ -125,30 +125,42 @@ void compareOneRead(
         size_t const refIndex,
         short const bcDelta,
         double const seqErrRate,
-        double const maxRatio)
+        double const maxRatio,
+        ProgressBar & progBar)
 {
     typedef FastqMultiRecord<TSequencingSpec> TMRec;
     std::vector<std::pair<size_t,size_t> > res;
 
     TMRec const & refRec = * sortedRecPtrs[refIndex];
+    uint64_t cnt = 0;
     for (size_t tarIndex = length(sortedRecPtrs)-1; tarIndex > refIndex; --tarIndex)
     {
         TMRec const & tarRec = * sortedRecPtrs[tarIndex];
         double ratio = static_cast<double>(refRec.ids.size()) / tarRec.ids.size();
+        uint64_t skipped = 0;
         // If the ratio is too high, we can stop looking at additional reads,
         // since we are iterating them in descending order
         if (ratio > maxRatio)
-            break;
+            skipped = tarIndex - refIndex;
         // If barcodes are too different, continue
-        if (!hammingDistAtMost(refRec.bcSeq, tarRec.bcSeq, bcDelta))
-            continue;
+        else if (!hammingDistAtMost(refRec.bcSeq, tarRec.bcSeq, bcDelta))
+            ++cnt;
         // Check if the read sequence(s) are similar within specs
-        if (withinClusteringSpecs(refRec, tarRec, seqErrRate))
+        else if (withinClusteringSpecs(refRec, tarRec, seqErrRate))
         {
             res.push_back(std::pair<size_t,size_t>(refIndex, tarIndex));
-            break;
+            skipped = tarIndex - refIndex;
         }
+
+        cnt += skipped;
+        if (cnt % 1234 == 0) {
+            progBar.updateAndPrint(cnt);
+            cnt=0;
+        }
+        if (skipped > 0)
+            break;
     }
+    progBar.updateAndPrint(cnt);
     // Store result
     std::lock_guard<std::mutex> lock(compareOneRead_result_write);
     clusterTodo.insert(clusterTodo.end(), res.begin(), res.end());
@@ -167,7 +179,7 @@ void barcodeCorrection(FastqMultiRecordCollection<TSequencingSpec> & collection,
     typedef typename TColl::TMRec                       TMRec;
     typedef std::pair<size_t,size_t>                    TPair;
 
-    std::cerr << "      Sorting unique reads by frequency" << std::endl;
+    std::cerr << "  |   Sorting unique reads by frequency" << std::endl;
 
     // Sort the Record indices by record abundance
     std::vector<TMRec*> sortedRecPtrs;
@@ -183,7 +195,9 @@ void barcodeCorrection(FastqMultiRecordCollection<TSequencingSpec> & collection,
     // From least to most abundant
     std::vector<TPair> todoPairs;
 
-    std::cerr << "      Pairwise UMI and read comparison" << std::endl;
+    std::cerr << "  |   Pairwise UMI and read comparison" << std::endl;
+    ProgressBar progBar(std::cerr, (sortedRecPtrs.size()-1)*(sortedRecPtrs.size()-1)/2, 100, "      ");
+    progBar.print_progress();
 
     { // Scope for ThreadPool which joins threads on destruct
 #ifdef __WITHCDR3THREADS__
@@ -192,18 +206,19 @@ void barcodeCorrection(FastqMultiRecordCollection<TSequencingSpec> & collection,
         for (size_t i = 0; i < sortedRecPtrs.size(); ++i)
         {
 #ifdef __WITHCDR3THREADS__
-            threadPool.enqueue<void>([i,&todoPairs,&collection,&sortedRecPtrs, &options]()
+            threadPool.enqueue<void>([i,&todoPairs,&collection,&sortedRecPtrs, &options, &progBar]()
                     {
 #endif
-                    compareOneRead(todoPairs, sortedRecPtrs, i, options.barcodeMaxError, options.bcClustMaxErrRate, options.bcClustMaxFreqRate);
+                    compareOneRead(todoPairs, sortedRecPtrs, i, options.barcodeMaxError, options.bcClustMaxErrRate, options.bcClustMaxFreqRate, progBar);
 #ifdef __WITHCDR3THREADS__
                     });
 #endif
         }
     } // End ThreadPool
 
+    progBar.clear();
 
-    std::cerr << "      Merging identified pairs of reads" << std::endl;
+    std::cerr << "  |   Merging identified pairs of reads" << std::endl;
 
     std::sort(todoPairs.begin(), todoPairs.end(), [](TPair const & a, TPair const & b) -> bool { return a.second < b.second; });
 

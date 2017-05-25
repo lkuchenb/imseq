@@ -28,6 +28,7 @@
 #define IMSEQ_FASTQ_MULTI_RECORD_H
 
 #include <iterator>
+#include <tuple>
 
 #include "fastq_io_types.h"
 #include "fastq_multi_record_types.h"
@@ -73,8 +74,10 @@ inline void compact(FastqMultiRecordCollection<SingleEnd> & collection)
     for (TListIt listIt : delListIts)
     {
         FastqMultiRecord<SingleEnd> & rec = *listIt;
-        if (collection.bcMap[listIt->bcSeq].erase(&(*listIt)) != 1) throw std::runtime_error("Please report this error");
-        if (collection.seqMap[listIt->seq].erase(&(*listIt)) != 1) throw std::runtime_error("Please report this error");
+        auto bcMapIt = collection.bcMap.find(listIt->bcSeq);
+        if (bcMapIt == collection.bcMap.end() || bcMapIt->second.erase(listIt->seq) != 1)
+            throw std::runtime_error("compact<SingleEnd>(...)[E001]");
+        if (bcMapIt->second.empty()) collection.bcMap.erase(bcMapIt);
         collection.multiRecords.erase(listIt);
     }
 }
@@ -94,9 +97,14 @@ inline void compact(FastqMultiRecordCollection<PairedEnd> & collection)
     for (TListIt listIt : delListIts)
     {
         FastqMultiRecord<PairedEnd> & rec = *listIt;
-        if (collection.bcMap[listIt->bcSeq].erase(&(*listIt)) != 1) throw std::runtime_error("Please report this error");
-        if (collection.fwSeqMap[listIt->fwSeq].erase(&(*listIt)) != 1) throw std::runtime_error("Please report this error");
-        if (collection.revSeqMap[listIt->revSeq].erase(&(*listIt)) != 1) throw std::runtime_error("Please report this error");
+        auto bcMapIt = collection.bcMap.find(listIt->bcSeq);
+        if (bcMapIt == collection.bcMap.end())
+            throw std::runtime_error("compact<PairedEnd>(...)[E001]");
+        auto fwSeqMapIt = bcMapIt->second.find(listIt->fwSeq);
+        if (fwSeqMapIt == bcMapIt->second.end() || fwSeqMapIt->second.erase(listIt->revSeq) != 1)
+            throw std::runtime_error("compact<PairedEnd>(...)[E002]");
+        if (fwSeqMapIt->second.empty()) bcMapIt->second.erase(fwSeqMapIt);
+        if (bcMapIt->second.empty()) collection.bcMap.erase(bcMapIt);
         collection.multiRecords.erase(listIt);
     }
 }
@@ -141,14 +149,43 @@ FastqMultiRecord<TSequencingSpec> const & getMultiRecord(FastqMultiRecordCollect
 inline void clear(FastqMultiRecordCollection<SingleEnd> & coll) {
     coll.multiRecords.clear();
     coll.bcMap.clear();
-    coll.seqMap.clear();
 }
 
 inline void clear(FastqMultiRecordCollection<PairedEnd> & coll) {
     coll.multiRecords.clear();
     coll.bcMap.clear();
-    coll.fwSeqMap.clear();
-    coll.revSeqMap.clear();
+}
+
+template <typename TSequencingSpec>
+std::tuple<uint64_t, uint64_t> getBarcodeStatsHelper(std::unordered_map<typename FastqMultiRecord<TSequencingSpec>::TSequence, FastqMultiRecord<TSequencingSpec> *> const & map)
+{
+    uint64_t unique = 0;
+    uint64_t total = 0;
+    for (auto & elem : map)
+    {
+        uint64_t nIds = elem.second->ids.size();
+        if (nIds > 0)
+        {
+            ++unique;
+            total += nIds;
+        }
+    }
+    return std::make_tuple(unique, total);
+}
+
+template <typename TKey, typename TValue>
+std::tuple<uint64_t, uint64_t> getBarcodeStatsHelper(std::unordered_map<TKey, TValue> const & map)
+{
+    uint64_t unique = 0;
+    uint64_t total = 0;
+    for (auto & elem : map)
+    {
+        uint64_t _unique, _total;
+        std::tie(_unique, _total) =  getBarcodeStatsHelper(elem.second);
+        unique += _unique;
+        total += _total;
+    }
+    return std::make_tuple(unique, total);
 }
 
 /**
@@ -167,14 +204,7 @@ BarcodeStats getBarcodeStats(FastqMultiRecordCollection<TSequencingSpec> const &
     for (typename TBcMap::const_iterator bcIt = bcMap.begin(); bcIt != bcMap.end(); ++bcIt) {
         uint64_t numUnique = 0;
         uint64_t numTotal = 0;
-        for (TMRec const * const recPtr: bcIt->second)
-        {
-            FastqMultiRecord<TSequencingSpec> const & rec = *recPtr;
-            uint64_t nReads = rec.ids.size();
-            numTotal += nReads;
-            if (nReads > 0)
-                ++numUnique;
-        }
+        std::tie(numUnique, numTotal) = getBarcodeStatsHelper(bcIt->second);
         if (numUnique > 0) {
             appendValue(stats.bcSeqs, bcIt->first);
             appendValue(stats.nReads, numTotal);
@@ -217,20 +247,14 @@ inline FastqMultiRecord<SingleEnd>* getMultiRecordPtr(FastqMultiRecordCollection
     typedef typename TColl::TMRec *               TPtr;
 
     // Get the index sets for bc and seq
-    TColl::TBcMap::const_iterator bcSetIt = collection.bcMap.find(bcSeq);
-    TColl::TSeqMap::const_iterator seqSetIt = collection.seqMap.find(seq);
-    if (bcSetIt == collection.bcMap.end() || seqSetIt == collection.seqMap.end())
+    TColl::TBcMap::const_iterator bcMapIt = collection.bcMap.find(bcSeq);
+    if (bcMapIt == collection.bcMap.end())
+        return nullptr;
+    TColl::TSeqMap::const_iterator seqMapIt = bcMapIt->second.find(seq);
+    if (seqMapIt == bcMapIt->second.end())
         return nullptr;
 
-    // Intersect the sets
-    std::set<TPtr> intersectSet;
-    std::set_intersection(bcSetIt->second.begin(), bcSetIt->second.end(), seqSetIt->second.begin(), seqSetIt->second.end(), std::inserter(intersectSet, intersectSet.end()));
-    if (intersectSet.empty())
-        return nullptr;
-    if (intersectSet.size() > 1)
-        throw std::runtime_error("For SingleEnd collections, (bcSeq,seq) tuples should be unique!");
-
-    return *intersectSet.begin();
+    return seqMapIt->second;
 }
 
 /**
@@ -245,25 +269,17 @@ inline FastqMultiRecord<PairedEnd>* getMultiRecordPtr(FastqMultiRecordCollection
     typedef typename TColl::TMRec *               TPtr;
 
     // Get the index sets for bc, fwSeq and revSeq
-    TColl::TBcMap::const_iterator bcSetIt = collection.bcMap.find(bcSeq);
-    TColl::TFwSeqMap::const_iterator fwSeqSetIt = collection.fwSeqMap.find(fwSeq);
-    TColl::TRevSeqMap::const_iterator revSeqSetIt = collection.revSeqMap.find(revSeq);
-    if (bcSetIt == collection.bcMap.end() || fwSeqSetIt == collection.fwSeqMap.end() || revSeqSetIt == collection.revSeqMap.end())
+    TColl::TBcMap::const_iterator bcMapIt = collection.bcMap.find(bcSeq);
+    if (bcMapIt == collection.bcMap.end())
+        return nullptr;
+    TColl::TFwSeqMap::const_iterator fwSeqMapIt = bcMapIt->second.find(fwSeq);
+    if (fwSeqMapIt == bcMapIt->second.end())
+        return nullptr;
+    TColl::TRevSeqMap::const_iterator revSeqMapIt = fwSeqMapIt->second.find(revSeq);
+    if (revSeqMapIt == fwSeqMapIt->second.end())
         return nullptr;
 
-    // Intersect the sets
-    std::set<TPtr> intersectSetTmp;
-    std::set_intersection(bcSetIt->second.begin(), bcSetIt->second.end(), fwSeqSetIt->second.begin(), fwSeqSetIt->second.end(), std::inserter(intersectSetTmp, intersectSetTmp.end()));
-    if (intersectSetTmp.empty())
-        return nullptr;
-    std::set<TPtr> intersectSet;
-    std::set_intersection(intersectSetTmp.begin(), intersectSetTmp.end(), revSeqSetIt->second.begin(), revSeqSetIt->second.end(), std::inserter(intersectSet, intersectSet.end()));
-    if (intersectSet.empty())
-        return nullptr;
-    if (intersectSet.size() > 1)
-        throw std::runtime_error("For PairedEnd collections, (bcSeq,fwSeq,revSeq) tuples should be unique!");
-
-    return *intersectSet.begin();
+    return revSeqMapIt->second;
 }
 
 inline FastqMultiRecord<SingleEnd>* getMultiRecordPtr(FastqMultiRecordCollection<SingleEnd> const & collection,
@@ -355,17 +371,14 @@ inline FastqMultiRecord<PairedEnd> newMultiRecord(FastqRecord<PairedEnd> const &
 inline FastqMultiRecord<PairedEnd> & mapMultiRecord(FastqMultiRecordCollection<PairedEnd> & collection,
         FastqMultiRecord<PairedEnd> const & multiRecord) {
     FastqMultiRecord<PairedEnd> & newRec = * collection.multiRecords.insert(collection.multiRecords.end(), multiRecord);
-    collection.bcMap[multiRecord.bcSeq].insert(&newRec);
-    collection.fwSeqMap[multiRecord.fwSeq].insert(&newRec);
-    collection.revSeqMap[multiRecord.revSeq].insert(&newRec);
+    collection.bcMap[multiRecord.bcSeq][multiRecord.fwSeq][multiRecord.revSeq] = &newRec;
     return newRec;
 }
 
 inline FastqMultiRecord<SingleEnd> & mapMultiRecord(FastqMultiRecordCollection<SingleEnd> & collection,
         FastqMultiRecord<SingleEnd> const & multiRecord) {
     FastqMultiRecord<SingleEnd> & newRec = * collection.multiRecords.insert(collection.multiRecords.end(), multiRecord);
-    collection.bcMap[multiRecord.bcSeq].insert(&newRec);
-    collection.seqMap[multiRecord.seq].insert(&newRec);
+    collection.bcMap[multiRecord.bcSeq][multiRecord.seq] = &newRec;
     return newRec;
 }
 

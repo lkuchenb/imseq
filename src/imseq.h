@@ -2558,8 +2558,8 @@ int main_generic(CdrGlobalData<TSequencingSpec> & global, CdrOptions & options, 
         std::cerr << "  |-- Dropping barcode information" << std::endl;
         stats = getBarcodeStats(noBcCollection);
         std::cerr <<
-            "      ........... Number of reads: " << stats.nTotalReads << '\n' <<
-            "      .... Number of unique reads: " << stats.nTotalUniqueReads << '\n';
+            "  |   ........... Number of reads: " << stats.nTotalReads << '\n' <<
+            "  |   .... Number of unique reads: " << stats.nTotalUniqueReads << '\n';
 
         collection = noBcCollection;
 

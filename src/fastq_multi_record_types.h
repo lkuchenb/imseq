@@ -27,7 +27,7 @@
 #ifndef IMSEQ_FASTQ_MULTI_RECORD_TYPES_H
 #define IMSEQ_FASTQ_MULTI_RECORD_TYPES_H
 
-#include <map>
+#include <unordered_map>
 #include <list>
 #include <limits>
 
@@ -82,50 +82,58 @@ struct FastqMultiRecord<PairedEnd> {
  - FastqMultiRecordCollection
  -------------------------------------------------------------------------------*/
 
-//struct DnaStringHash
-//{
-//    static std::hash<std::string> const hash_fun;
-//    size_t operator()(String<Dna5> const & str) const;
-//};
+namespace std {
+
+  template<>
+  struct hash<seqan::String<Dna5> >
+  {
+    std::size_t operator()(const seqan::String<Dna5> & k) const
+    {
+        size_t res = 12345678910;
+        for (seqan::Iterator<seqan::String<Dna5> const,Rooted>::Type it = begin(k); !atEnd(it); goNext(it))
+        {
+            res = res * 101 + static_cast<int>(*it) * 60;
+        }
+        return res;
+    }
+  };
+
+}
 
 template<typename T>
 struct FastqMultiRecordCollection {};
 
 template<>
 struct FastqMultiRecordCollection<SingleEnd> {
-
     typedef FastqMultiRecord<SingleEnd>         TMRec;
+    typedef TMRec::TSequence                    TSequence;
     typedef std::list<TMRec>                    TRecList;
     typedef std::list<TMRec>::const_iterator    TRecListIt;
-    typedef std::set<TMRec*> TPtrSet;
 
     static uint64_t const NO_MATCH = std::numeric_limits<uint64_t>::max();
 
-    typedef std::map<TMRec::TSequence, TPtrSet> TSeqMap;
-    typedef std::map<TMRec::TSequence, TPtrSet> TBcMap;
+    typedef std::unordered_map<TMRec::TSequence, TMRec*> TSeqMap;
+    typedef std::unordered_map<TMRec::TSequence, TSeqMap> TBcMap;
 
     TRecList multiRecords;
     TBcMap bcMap;
-    TSeqMap seqMap;
 };
 
 template<>
 struct FastqMultiRecordCollection<PairedEnd> {
-    static uint64_t const NO_MATCH = std::numeric_limits<uint64_t>::max();
-
     typedef FastqMultiRecord<PairedEnd>         TMRec;
+    typedef TMRec::TSequence                    TSequence;
     typedef std::list<TMRec>                    TRecList;
     typedef std::list<TMRec>::const_iterator    TRecListIt;
-    typedef std::set<TMRec*> TPtrSet;
 
-    typedef std::map<TMRec::TSequence, TPtrSet> TRevSeqMap;
-    typedef std::map<TMRec::TSequence, TPtrSet> TFwSeqMap;
-    typedef std::map<TMRec::TSequence, TPtrSet> TBcMap;
+    static uint64_t const NO_MATCH = std::numeric_limits<uint64_t>::max();
+
+    typedef std::unordered_map<TMRec::TSequence, TMRec*> TRevSeqMap;
+    typedef std::unordered_map<TMRec::TSequence, TRevSeqMap> TFwSeqMap;
+    typedef std::unordered_map<TMRec::TSequence, TFwSeqMap> TBcMap;
 
     TRecList multiRecords;
     TBcMap bcMap;
-    TFwSeqMap fwSeqMap;
-    TRevSeqMap revSeqMap;
 };
 
 /*-------------------------------------------------------------------------------
