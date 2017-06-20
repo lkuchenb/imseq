@@ -2321,7 +2321,7 @@ int runAnalysis(CdrGlobalData<TSequencingSpec> & global,
     // Write the CSV headers
     // ============================================================================
 
-    POINTERSTREAM(global.outFiles._fullOutStream) << "seqId" << getRdtSequenceHeader(options.rdtWithSequence, TSequencingSpec()) << "\tcdrBegin\tcdrEnd\tleftMatches\tleftErrPos\tleftMatchLen\trightMatches\trightErrPos\trightMatchLen\tcdrNucSeq\tcdrAASeq" << std::endl;
+    POINTERSTREAM(global.outFiles._fullOutStream) << "SEQ_ID" << getRdtSequenceHeader(options.rdtWithSequence, TSequencingSpec()) << "\tCDR3_BEGIN\tCDR3_END\tV_MATCHES\tV_ERRPOS\tV_MATCHLEN\tJ_MATCHES\tJ_ERRPOS\tJ_MATCHLEN\tCDR3_NUCSEQ\tCDR3_AASEQ" << std::endl;
 
     // ============================================================================
     // Perform the analysis
