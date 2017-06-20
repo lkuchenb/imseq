@@ -192,10 +192,6 @@ std::mutex CACHE_STORE_MUTEX;
 #endif
 
 // ============================================================================
-// Metafunctions
-// ============================================================================
-
-// ============================================================================
 // Typedefs
 // ============================================================================
 
@@ -438,13 +434,10 @@ inline bool checkSDDiff(CdrOptions const & options, ClusterPair const & cp, TClo
         std::cerr << "[ERR] checkSDDiff() encountered a cluster result without mean / sd data. Please report this error." << std::endl;
 
     double maxValue = cse->second.qMean - (1.0 * options.minSdDevi * cse->second.qSD);
-    //std::cerr << "[maxValue " << maxValue << "] ";
     for (Iterator<String<unsigned> const,Rooted>::Type errPos = begin(cp.getMinorErrPositions()); !atEnd(errPos); goNext(errPos)) {
-        //std::cerr << cse->second.getAverageQScores()[*errPos] << " ";
         if (cse->second.avgQVals[*errPos] > maxValue)
             return false;
     }
-    //std::cerr << std::endl;
 
     return true;
 }
@@ -464,12 +457,9 @@ void buildGroups(String<std::set<unsigned> > & groups, String<std::set<unsigned>
     
     String<std::set<unsigned> > tmpGroups;
     for (Iterator<String<std::set<unsigned> > const,Rooted>::Type matchSetElem = begin(matchSet); !atEnd(matchSetElem); goNext(matchSetElem)) {
-        //std::cerr << "BEFORE " << tmpGroups << std::endl;
-        //std::cerr << *matchSetElem << " [MatchSetElem]" << std::endl;
         if (length(tmpGroups)==0) {
             resize(tmpGroups,1);
             tmpGroups[0].insert(position(matchSetElem));
-            //std::cerr << "AFTER  " << tmpGroups << "\n" << std::endl;
             continue;
         }
 
@@ -495,7 +485,6 @@ void buildGroups(String<std::set<unsigned> > & groups, String<std::set<unsigned>
             resize(tmpGroups,length(tmpGroups)+1);
             tmpGroups[length(tmpGroups)-1].insert(position(matchSetElem));
         }
-        //std::cerr << "AFTER  " << tmpGroups << "\n" << std::endl;
     }
     clear(groups);
     for (Iterator<String<std::set<unsigned> >,Rooted>::Type it = begin(tmpGroups); !atEnd(it); goNext(it))
@@ -539,11 +528,9 @@ void mergeClones(String<Clone<TAlphabet> > const & targetClones, Clone<TAlphabet
             exit(1);
         }
         mergeWithClusterResult(cluRes, oldElem->second);
-        //std::cout << "DEL " << oldElem->first << " - " << oldElem->second << std::endl;
         cloneStore.erase(oldElem);
     }
     cloneStore[newClone] = cluRes;
-    //std::cout << "ADD " << newClone << " - " << cluRes << "\n\n" << std::flush;
 }
 
 template<typename TCloneStore_>
@@ -585,9 +572,7 @@ void mergeIdenticalCDRs(TCloneStore_ & cloneStore) {
         // ============================================================================
 
         String<std::set<unsigned> > leftGroups, rightGroups;
-        //std::cerr << "LEFT" << std::endl;
         buildGroups(leftGroups, leftMatchSets);
-        //std::cerr << "RIGHT" << std::endl;
         buildGroups(rightGroups, rightMatchSets);
 
         // ============================================================================
@@ -1544,7 +1529,6 @@ inline void _refineAlignmentScore(
     TRow& segmentRow    = row(align, 1);
     int pos = toViewPosition(segmentRow, meta.motifPos) - 1;
     int end = std::max(beginPosition(readRow), beginPosition(segmentRow));
-    //int end = std::max(toViewPosition(readRow, 0), toViewPosition(segmentRow, 0));
 
     bool tail = true;
     for (;pos >= end; --pos) {
@@ -1709,7 +1693,6 @@ const AnalysisResult rejectRead(String<Dna5> const & readSeq, RejectReason const
 #ifdef __WITHCDR3THREADS__
     std::unique_lock<std::mutex> lock(CACHE_STORE_MUTEX);
 #endif
-    //std::cerr << "REJECT FOR " << reason << std::endl;
     if (cacheStore != NULL) {
         std::pair<TCacheStore::iterator,bool> prev = cacheStore->insert( std::make_pair(readSeq, ce) );
         if (!prev.second && prev.first->second != ce) {

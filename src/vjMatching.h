@@ -64,10 +64,14 @@ struct SegmentMatch : RefMatch<TSeq> {
     SegmentMatch(unsigned db_, int score_, Align<TSeq> align_) : RefMatch<TSeq>(score_, align_), db(db_) { }
 };
 
-typedef Segment<String<Dna5> const, InfixSegment>      _Dna5InfixSegment;
-struct CandidateCoreSegmentMatch : RefMatch<_Dna5InfixSegment> {
+struct CandidateCoreSegmentMatch
+{
     unsigned coreSegId;
-    CandidateCoreSegmentMatch(unsigned coreSegId_, int score_, Align<_Dna5InfixSegment> align_) : RefMatch<_Dna5InfixSegment>(score_, align_), coreSegId(coreSegId_) { }
+    unsigned readBeginPos;
+    unsigned readEndPos;
+
+    CandidateCoreSegmentMatch(unsigned coreSegId, unsigned readBeginPos, unsigned readEndPos)
+        : coreSegId(coreSegId), readBeginPos(readBeginPos), readEndPos(readEndPos) {}
 };
 
 /********************************************************************************
@@ -365,22 +369,11 @@ void findCandidateCoreSegments(
                 appendValue(toExpandInfixes, bePos);
             }
 
-            // BUILD ALIGN OBJECTS FOR ALL CANDIDATE REGIONS 
-
+            // Store candidate match
             for (Iterator<String<TBeginEndPos>,Rooted>::Type it = begin(toExpandInfixes); !atEnd(it); goNext(it))
             {
-                // Build align object
-                TAlign align;
-                resize(rows(align), 2);
-                assignSource(row(align, 0), infix(readInfix, it->beginPos, it->endPos));
-                assignSource(row(align, 1), segInfix);
-                detach(align); // Copies the infix but not the sequence
-
-                int score = globalAlignment(align, sc, AlignConfig<true,false,false,true>());
-
-                CandidateCoreSegmentMatch ccsm(coreSegId, score, align);
+                CandidateCoreSegmentMatch ccsm(coreSegId, it->beginPos + infixPos.beginPos, it->endPos + infixPos.beginPos);
                 appendValue(ccsms, ccsm);
-
             }
         }
 
@@ -388,14 +381,15 @@ void findCandidateCoreSegments(
     }
 }
 
-template <typename TAlign, typename TSequence, typename TBeginEndPos>
+template <typename TAlign, typename TReadSequence>
 int extendToOverlapAlignment(
         TAlign & align,                         // [OUT] The target alignment object
         CandidateCoreSegmentMatch const & ccsm, // [IN]  The candidate core segment match
-        TSequence const & readSeq,              // [IN]  The read sequence
-        TSequence const & segSeq,               // [IN]  The segment sequence
-        TBeginEndPos const & segSeqSCFPos,      // [IN]  The SCF position inside the segment
+        TReadSequence & readSeq,
+        unsigned const segId,                   // [IN]  The gene segment ID
+        CdrReferences const & references,       // [IN]  The references
         double const & maxErrRate,              // [IN]  The maximum error rate allowed
+        int shift,                              // [IN]  The SCF shift / offset
         LeftOverlap const                       // [TAG] The overlap direction
         )
 {
@@ -403,52 +397,58 @@ int extendToOverlapAlignment(
     typedef typename Position<TRow>::Type                       TRowPos;
     typedef typename Source<TRow>::Type                         TSource;
     typedef typename Position<TSource>::Type                    TPos;
-    typedef Segment<TSequence const, InfixSegment>              TSegment;
+    typedef Segment<String<Dna5> const, InfixSegment>           TSegment;
     
     // Prepare the target align object
     resize(rows(align), 2);
 
-    // Clip begin and end of the SCF match if there are leading / trailing
-    // mismatches or gaps
-    TAlign scfAlignment = ccsm.align;
-    TRow & scfAlignReadRow = row(scfAlignment, 0);
-    TRow & scfAlignSegRow = row(scfAlignment, 1);
-    clipOuterGaps(scfAlignment);
+    // The segment infix ends with the motif
+    TPos segmentEndPos = references.leftMeta[segId].motifPos + 3;
+    // If the SCF is shifted into the CDR3 region, extend
+    if (shift > 0)
+        segmentEndPos += shift;
+    // Build the segments
+    TSegment segSegment(references.leftSegs[segId], 0, segmentEndPos);
+    TSegment readSegment(readSeq); // Dummy infix
 
-    // Determine the last position of the read and segment that are covered by
-    // the provided SCF alignment
-    TPos lastSCFReadPos = endPosition(scfAlignReadRow) + beginPosition(source(scfAlignReadRow));
-    TPos lastSCFSegPos = endPosition(scfAlignSegRow) + beginPosition(source(scfAlignSegRow)) + segSeqSCFPos.beginPos;
+    unsigned maxErrors = static_cast<unsigned>(std::ceil(1.0 * ccsm.readEndPos * maxErrRate));
 
-    // Prepare the segments and set up the align object
-    TSegment readSegment(readSeq, 0, lastSCFReadPos);
-    unsigned maxErrors = static_cast<unsigned>(std::ceil(length(readSegment) * maxErrRate)) + 1;
-    unsigned targetSegLength = length(readSegment)+maxErrors;
-    TPos segSegmentBeginPos = lastSCFSegPos > targetSegLength ? lastSCFSegPos - targetSegLength : 0;
-    TSegment segSegment(segSeq, segSegmentBeginPos, lastSCFSegPos);
     setSource(row(align, 0), readSegment);
     setSource(row(align, 1), segSegment);
-    detach(align);
+    detach(align); // Copy infix but not data
+
+    int diag = - length(segSegment) + ccsm.readEndPos;
+    if (shift < 0)
+        diag += -shift;
+    if (diag > 0)
+        diag = 0;
 
     // Compute the overlap alignment
-    int s = globalAlignment(align, SimpleScore(1,-1,-1), AlignConfig<false,true,false,true>(), -(2*maxErrors), 0);
+    // !!! SEGFAULT in SeqAn if diags are equal
+    int s = globalAlignment(align, SimpleScore(1,-1,-1), AlignConfig<false,true,false,true>(), diag - maxErrors, diag + maxErrors + 1);
 
     // Clip leading segment gaps
     TRowPos clippedViewBeginPos = toViewPosition(row(align, 0), 0);
     setClippedBeginPosition(row(align, 0), clippedViewBeginPos);
     setClippedBeginPosition(row(align, 1), clippedViewBeginPos);
 
+    // Clip after segment end
+    TRowPos clippedViewEndPos = toViewPosition(row(align, 1), length(segSegment));
+    setClippedEndPosition(row(align, 0), clippedViewEndPos);
+    setClippedEndPosition(row(align, 1), clippedViewEndPos);
+
     return s;
 }
 
-template <typename TAlign, typename TSequence, typename TBeginEndPos>
+template <typename TAlign, typename TReadSequence>
 int extendToOverlapAlignment(
         TAlign & align,                         // [OUT] The target alignment object
         CandidateCoreSegmentMatch const & ccsm, // [IN]  The candidate core segment match
-        TSequence const & readSeq,              // [IN]  The read sequence
-        TSequence const & segSeq,               // [IN]  The segment sequence
-        TBeginEndPos const & segSeqSCFPos,      // [IN]  The SCF position inside the segment
+        TReadSequence & readSeq,
+        unsigned const segId,                   // [IN]  The gene segment ID
+        CdrReferences const & references,       // [IN]  The references
         double const & maxErrRate,              // [IN]  The maximum error rate allowed
+        int shift,                              // [IN]  The SCF shift / offset
         RightOverlap const                      // [TAG] The overlap direction
         )
 {
@@ -456,77 +456,37 @@ int extendToOverlapAlignment(
     typedef typename Position<TRow>::Type                       TRowPos;
     typedef typename Source<TRow>::Type                         TSource;
     typedef typename Position<TSource>::Type                    TPos;
-    typedef Segment<TSequence const, InfixSegment>              TSegment;
+    typedef Segment<String<Dna5> const, InfixSegment>           TSegment;
     
     // Prepare the target align object
     resize(rows(align), 2);
 
-    // Clip begin and end of the SCF match if there are leading / trailing
-    // mismatches or gaps
-    TAlign scfAlignment = ccsm.align;
-    TRow & scfAlignReadRow = row(scfAlignment, 0);
-    TRow & scfAlignSegRow = row(scfAlignment, 1);
-    clipOuterGaps(scfAlignment);
+    // The segment infix begins with the motif
+    TPos segmentBeginPos = references.rightMeta[segId].motifPos;
+    // If the SCF is shifted into the CDR3 region, extend
+    if (shift < 0)
+        segmentBeginPos += shift;
+    // Build the segments
+    TSegment segSegment(references.rightSegs[segId], segmentBeginPos, length(references.rightSegs[segId]));
+    TSegment readSegment(readSeq); // Dummy infix
 
-    // Determine the first position of the read and segment that are covered by
-    // the provided SCF alignment
-    TPos firstSCFReadPos = beginPosition(scfAlignReadRow) + beginPosition(source(scfAlignReadRow));
-    TPos firstSCFSegPos = beginPosition(scfAlignSegRow) + beginPosition(source(scfAlignSegRow)) + segSeqSCFPos.beginPos;
+    unsigned maxErrors = static_cast<unsigned>(length(readSeq) - ccsm.readBeginPos);
 
-    // Prepare the segments and set up the align object
-    TSegment readSegment(readSeq, firstSCFReadPos, length(readSeq));
-    unsigned maxErrors = static_cast<unsigned>(std::ceil(length(readSegment) * maxErrRate)) + 1;
-    TPos segSegmentEndPos = std::min(length(segSeq), length(readSegment) + maxErrors+ firstSCFSegPos);
-    TSegment segSegment(segSeq, firstSCFSegPos, segSegmentEndPos);
     setSource(row(align, 0), readSegment);
     setSource(row(align, 1), segSegment);
-    detach(align);
+    detach(align); // Copy infix but not data
+
+    int diag = ccsm.readBeginPos;
 
     // Compute the overlap alignment
-    int s = globalAlignment(align, SimpleScore(1,-1,-1), AlignConfig<true,false,true,true>(), -maxErrors, maxErrors);
+    int s = globalAlignment(align, SimpleScore(1,-1,-1), AlignConfig<true,false,true,true>(), diag - maxErrors, diag + maxErrors + 1);
 
-    // Clip leading segment gaps
-    TRowPos clippedViewEndPos = std::min(toViewPosition(row(align, 0), length(source(row(align,0)))), toViewPosition(row(align, 1), length(source(row(align,1)))));
-    setClippedEndPosition(row(align, 0), clippedViewEndPos);
-    setClippedEndPosition(row(align, 1), clippedViewEndPos);
+    // Clip before segment starts
+    TRowPos clippedViewBeginPos = toViewPosition(row(align, 1), 0);
+    setClippedBeginPosition(row(align, 0), clippedViewBeginPos);
+    setClippedBeginPosition(row(align, 1), clippedViewBeginPos);
 
     return s;
-}
-
-template <typename TAlign, typename TSequence, typename TBeginEndPos, typename TOverlapDirection>
-int expandSCFAlignment(
-        TAlign & align,                         // [OUT] The target alignment object
-        CandidateCoreSegmentMatch const & ccsm, // [IN]  The candidate core segment match
-        TSequence const & readSeq,              // [IN]  The read sequence
-        TSequence const & segSeq,               // [IN]  The segment sequence
-        TBeginEndPos const & segSeqSCFPos,      // [IN]  The SCF position inside the segment
-        TOverlapDirection const &               // [TAG] The overlap direction
-        )
-{
-    // Type definitions
-    typedef typename Infix<TSequence const>::Type       TInfix;
-
-    // The align object in the CandidateCoreSegmentMatch contains an Infix<->Infix alignment
-    // between the segment core fragment (directly, not as infix of the segment) and the 
-    // read. At first, the segment core fragment infix needs to be replaced by a segment infix.
-
-    TInfix segInfix(segSeq, segSeqSCFPos.beginPos, segSeqSCFPos.endPos);
-    align = ccsm.align;
-
-    // Cannot use "setSource()" here because this would reset the gaps.
-    // Maybe we should use a new alignment + integrateAlign() here instead?
-    setValue(row(align, 1)._source, segInfix);
-
-    detach(align);
-
-    Tuple<unsigned, 4> positions;
-    clipAndComputePositions(positions, align, TOverlapDirection());
-
-    Score<int,Simple> const sc(1,-1,-1);
-
-    int score = extendAlignment(align, ccsm.score, readSeq, segSeq, positions, GetExtDir<TOverlapDirection>::VALUE, -6, 6, sc);
-
-    return score;
 }
 
 inline double errRateFromScore(int score, unsigned length)
@@ -544,7 +504,7 @@ void findBestSCFs(
         StringSet<String<CandidateCoreSegmentMatch> > const & candidateMatches, // [IN]  The candidate SCF-read matches
         TSequenceSet const & readSeqs,                                          // [IN]  The read sequences
         CdrReferences const & references,                                       // [IN]  The segment reference data
-        double const maxErrRate,                                                // [IN]  The maximum error rate
+        CdrOptions const & options,
         TOverlapDirection const &                                               // [TAG] Indicating the overlap direction
         )
 {
@@ -565,6 +525,8 @@ void findBestSCFs(
     clear(segMatchSet);
     resize(segMatchSet, length(readSeqs));
 
+    double maxErrRate = getMaxErrRate(options, TOverlapDirection());
+
     // Iterate through the reads
     for (typename Iterator<TSequenceSet const, Rooted>::Type readIt = begin(readSeqs); !atEnd(readIt); goNext(readIt)) {
         TSequence  & readSeq    = *readIt;
@@ -573,14 +535,15 @@ void findBestSCFs(
         TSegmentMatches & segMatches = segMatchSet[readId];
         int maxScore = 0;
         // Iterate through the candidate matches and find the best one
-        for (typename Iterator<TCandMatches, Rooted>::Type cmIt = begin(candidateMatches[readId]); !atEnd(cmIt); goNext(cmIt)) {
-            for (Iterator<String<unsigned> const, Rooted>::Type segIdIt = begin(scfToSegIds[cmIt->coreSegId]); !atEnd(segIdIt); goNext(segIdIt)) {
-                unsigned segmentId = *segIdIt;
-
+        for (CandidateCoreSegmentMatch const & ccsm : candidateMatches[readId])
+        {
+            for (unsigned const segmentId : scfToSegIds[ccsm.coreSegId])
+            {
                 TAlign align;
 
                 // Global overlap alignment computation
-                int score = extendToOverlapAlignment(align, *cmIt, readSeq, segSeqs[segmentId], scfBeginEndPos[segmentId], maxErrRate, TOverlapDirection());
+                int score = extendToOverlapAlignment(align, ccsm, readSeq, segmentId, references, maxErrRate, 
+                        getSCFOffset(options, TOverlapDirection()), TOverlapDirection());
 
                 double errRate = errRateFromScore(score, length(row(align, 0)));
                 if (errRate > maxErrRate)
@@ -629,7 +592,7 @@ void findBestSegmentMatch(
             candidateMatches,
             seqs,
             references,
-            getMaxErrRate(global.options, TOverlapSpec()),
+            global.options,
             TOverlapSpec());
 }
 
@@ -655,7 +618,7 @@ void findBestSegmentMatch(
             candidateMatches,
             seqs,
             references,
-            getMaxErrRate(global.options, RightOverlap()),
+            global.options,
             RightOverlap());
 }
 

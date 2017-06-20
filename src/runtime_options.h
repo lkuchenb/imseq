@@ -96,6 +96,16 @@ struct CdrOptions {
 // Getter for V/J segment alignment parameters
 // ============================================================================
 
+inline unsigned getSCFOffset(CdrOptions const & options, LeftOverlap const)
+{
+    return options.vSCFOffset;
+}
+
+inline unsigned getSCFOffset(CdrOptions const & options, RightOverlap const)
+{
+    return options.jSCFOffset;
+}
+
 inline unsigned getMaxCoreSegErrors(CdrOptions const & options, LeftOverlap const)
 {
     return options.maxVCoreErrors;
