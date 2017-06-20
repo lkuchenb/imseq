@@ -427,15 +427,15 @@ int extendToOverlapAlignment(
     // !!! SEGFAULT in SeqAn if diags are equal
     int s = globalAlignment(align, SimpleScore(1,-1,-1), AlignConfig<false,true,false,true>(), diag - maxErrors, diag + maxErrors + 1);
 
+    // Clip after segment end
+    TRowPos clippedViewEndPos = toViewPosition(row(align, 1), (length(segSegment)-1)) + 1;
+    setClippedEndPosition(row(align, 0), clippedViewEndPos);
+    setClippedEndPosition(row(align, 1), clippedViewEndPos);
+
     // Clip leading segment gaps
     TRowPos clippedViewBeginPos = toViewPosition(row(align, 0), 0);
     setClippedBeginPosition(row(align, 0), clippedViewBeginPos);
     setClippedBeginPosition(row(align, 1), clippedViewBeginPos);
-
-    // Clip after segment end
-    TRowPos clippedViewEndPos = toViewPosition(row(align, 1), length(segSegment));
-    setClippedEndPosition(row(align, 0), clippedViewEndPos);
-    setClippedEndPosition(row(align, 1), clippedViewEndPos);
 
     return s;
 }
@@ -478,8 +478,16 @@ int extendToOverlapAlignment(
 
     int diag = ccsm.readBeginPos;
 
-    // Compute the overlap alignment
+    // Compute the overlap alignment.
+    // !!! In contrast to the V alignment, we allow extra read sequence here
     int s = globalAlignment(align, SimpleScore(1,-1,-1), AlignConfig<true,false,true,true>(), diag - maxErrors, diag + maxErrors + 1);
+
+    // Clip after read or segment ends
+    TRowPos readViewEndPos = toViewPosition(row(align, 0), length(readSegment) - 1) + 1;
+    TRowPos segViewEndPos = toViewPosition(row(align, 1), length(segSegment) - 1) + 1;
+    TRowPos clipViewEndPos = readViewEndPos > segViewEndPos ? segViewEndPos : readViewEndPos;
+    setClippedEndPosition(row(align, 0), clipViewEndPos);
+    setClippedEndPosition(row(align, 1), clipViewEndPos);
 
     // Clip before segment starts
     TRowPos clippedViewBeginPos = toViewPosition(row(align, 1), 0);
