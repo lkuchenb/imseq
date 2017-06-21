@@ -79,15 +79,16 @@ struct CandidateCoreSegmentMatch
  *******************************************************************************/
 
 /**
- * Constructs an ordered container with dependant infix segments. The infixes
- * have length 'length' and start at position 'start' relative to the motif
- * position
+ * Constructs an ordered container with dependant infix segments.
+ * The infixes have length 'length' and start at position 'start' relative to
+ * the motif position.
  */
 const unsigned BUILD_SEGMENT_CORE_FRAGMENTS_GOOD = -1u;
 template<typename TStringSet>
 unsigned buildSegmentCoreFragments(
         TStringSet & scfSet,                                    // [OUT] Set of segment core fragments
         StringSet<String<unsigned> > & scfToSegId,              // [OUT] Set of segment ids for each core fragment
+        String<unsigned> & segToScfId,                          // [OUT] Mapping of segment IDs to SCF ids
         String<BeginEndPos<unsigned> > & scfBeginEndPos,        // [OUT] The SCF begin and end positions for each segment
         TStringSet const & segSeqs,                             // [IN]  The segment sequences
         String<SegmentMeta> const & segMeta,                    // [IN]  Meta information for the segments
@@ -117,11 +118,15 @@ unsigned buildSegmentCoreFragments(
     }
     clear(scfSet);
     clear(scfToSegId);
+    clear(segToScfId);
+    resize(segToScfId, length(segSeqs), -1u);
     reserve(scfSet, resMap.size());
     reserve(scfToSegId, resMap.size());
     for (typename TResMap::const_iterator resMapIt = resMap.begin(); resMapIt!=resMap.end(); ++resMapIt) {
         appendValue(scfSet, resMapIt->first);
         appendValue(scfToSegId, resMapIt->second);
+        for (unsigned segId : resMapIt->second)
+            segToScfId[segId] = length(scfSet) - 1;
     }
     return BUILD_SEGMENT_CORE_FRAGMENTS_GOOD;
 }
@@ -259,11 +264,118 @@ int semiglobalAlignmentScoreMyers(int & endPos, TText & text, TPattern & pattern
     return -minErrors;
 }
 
+template <typename TSequence>
+String<CandidateCoreSegmentMatch> verifySCFHits(
+        TSequence const & readSeq,
+        StringSet<TSequence> const & scfSequences,
+        std::map<unsigned, BeginEndPos<long long> > scfInfixPositions,
+        int const maxErrors)
+{
+    typedef std::map<unsigned, BeginEndPos<long long> > TInfixPosMap;
+    typedef typename Infix<TSequence const>::Type       TInfix;
+
+    String<CandidateCoreSegmentMatch> ccsms;
+
+    typedef TInfixPosMap::mapped_type TBeginEndPos;
+
+    // Find all positions where the SCF matches within the constraints
+    // specified by the user (# of errors)
+    for (TInfixPosMap::const_iterator scfInfixPosition = scfInfixPositions.begin(); scfInfixPosition != scfInfixPositions.end(); ++scfInfixPosition) {
+        unsigned coreSegId = scfInfixPosition->first;
+        TBeginEndPos const & infixPos = scfInfixPosition->second;
+        // Build the infix-SCF alignment
+        TInfix readInfix(readSeq, infixPos.beginPos, infixPos.endPos);
+        // "Pseudoinfix" to maintain type equality
+        TInfix segInfix(scfSequences[coreSegId]);
+
+        // Use Myers finder to find all locations within constraints
+        Pattern<TInfix, Myers<> > myersPattern(segInfix);
+        Finder<TInfix> finder(readInfix);
+
+        int bestScore = MinValue<int>::VALUE;
+        String<TBeginEndPos> toExpandInfixes;
+        while (find(finder, myersPattern, -maxErrors))
+        {
+            if (getScore(myersPattern) < bestScore)
+                continue;
+            if (getScore(myersPattern) > bestScore)
+            {
+                bestScore = getScore(myersPattern);
+                clear(toExpandInfixes);
+            }
+            TBeginEndPos bePos(MaxValue<long long>::VALUE, endPosition(finder));
+            while (findBegin(finder, myersPattern, getScore(myersPattern)))
+                if (bePos.beginPos > static_cast<long long>(beginPosition(finder)))
+                    bePos.beginPos = beginPosition(finder);
+            appendValue(toExpandInfixes, bePos);
+        }
+
+        // Store candidate match
+        for (Iterator<String<TBeginEndPos>,Rooted>::Type it = begin(toExpandInfixes); !atEnd(it); goNext(it))
+        {
+            CandidateCoreSegmentMatch ccsm(coreSegId, it->beginPos + infixPos.beginPos, it->endPos + infixPos.beginPos);
+            appendValue(ccsms, ccsm);
+        }
+    }
+    return ccsms;
+}
+
+template <typename TSequence, typename TSegmentPattern>
+std::map<unsigned, BeginEndPos<long long> > filterSCFs(
+        TSequence & readSeq,
+        TSegmentPattern & segmentPattern,
+        double const errRate,
+        std::set<unsigned> const * scfIdLim = nullptr)
+{
+    typedef std::map<unsigned, BeginEndPos<long long> >                 TInfixPosMap;
+    typedef Finder<TSequence, Swift<SwiftSemiGlobal> >                  TFinder;
+
+    TInfixPosMap scfInfixPositions;
+    TFinder readFinder(readSeq);
+
+    // No legal SCFS? Return empty result
+    if (scfIdLim != nullptr && scfIdLim->empty())
+        return scfInfixPositions;
+
+    // Identify the windows within the read we have to investigate for potential
+    // core fragment matches
+    while (find(readFinder, segmentPattern, errRate, 0)) {
+        unsigned coreSegId  = readFinder.curHit->ndlSeqNo;
+
+        // Skip if a limited set was specified and the id is not in it
+        if (scfIdLim != nullptr && scfIdLim->find(coreSegId) == scfIdLim->end())
+            continue;
+
+        long long beginPos  = readFinder.curHit->hstkPos;
+        long long endPos    = beginPos + readFinder.curHit->bucketWidth;
+        // 0 is the lower bound for our diagonal, since we want a semi global alignment
+        beginPos            = beginPos < 0 ? 0 : beginPos;
+        endPos              = endPos < 0 ? 0 : endPos;
+        // Length of readSeq is the upper bound of our diagonal, since we want a semi global alignment
+        beginPos            = beginPos < (long long)length(readSeq) ? beginPos : (long long)length(readSeq) - 1;
+        endPos              = endPos <= (long long)length(readSeq) ? endPos : (long long)length(readSeq);
+        // Check if there was a previous hit on the same segment
+        TInfixPosMap::iterator scfInfixPosition = scfInfixPositions.find(coreSegId);
+        if (scfInfixPosition != scfInfixPositions.end()) {
+            BeginEndPos<long long> & infixPos       = scfInfixPosition->second;
+            infixPos.beginPos = infixPos.beginPos > beginPos ? beginPos : infixPos.beginPos;
+            infixPos.endPos   = infixPos.endPos < endPos ? endPos : infixPos.endPos;
+        } else {
+            BeginEndPos<long long> infixPos(beginPos, endPos);
+            if (infixPos.endPos > infixPos.beginPos)
+                scfInfixPositions[coreSegId] = infixPos;
+        }
+    }
+
+    return scfInfixPositions;
+}
+
+
 template <typename TStringSet>
 void findCandidateCoreSegments(
         StringSet<String<CandidateCoreSegmentMatch> > & results,        // [OUT] One String of candidate SCFs for each input read sequence
         TStringSet const & readSequences,                               // [IN]  The input read sequences
-        TStringSet const & segmentSequences,                            // [IN]  The core fragments of the segment sequences
+        TStringSet const & scfSequences,                                // [IN]  The core fragments of the segment sequences
         int const maxErrors                                             // [IN]  Maximum #errors for the core fragment alignment
         )
 {
@@ -275,7 +387,6 @@ void findCandidateCoreSegments(
     typedef Shape<TAlphabet, SimpleShape>                               TShape;
     typedef Index<TStringSet, IndexQGram<TShape, OpenAddressing> >      TIndex;
     typedef Pattern<TIndex, Swift<SwiftSemiGlobal> >                    TPattern;
-    typedef Finder<TSequence, Swift<SwiftSemiGlobal> >                  TFinder;
     typedef typename Infix<TSequence const>::Type                       TInfix;
     typedef Align<TInfix>                                               TAlign;
     typedef std::map<unsigned, BeginEndPos<long long> >                 TInfixPosMap;
@@ -284,9 +395,9 @@ void findCandidateCoreSegments(
     Score<int,Simple> const sc(1,-1,-1);
 
     // Pattern is constructed over segment core fragments, Finder is called on read sequences
-    double const errRate = 1.0 * maxErrors / length(segmentSequences[0]); // The length of all SCFs is the same 
-    TIndex segmentIndex(segmentSequences);
-    resize(indexShape(segmentIndex), length(segmentSequences[0]) / (maxErrors+1));
+    double const errRate = 1.0 * maxErrors / length(scfSequences[0]); // The length of all SCFs is the same
+    TIndex segmentIndex(scfSequences);
+    resize(indexShape(segmentIndex), length(scfSequences[0]) / (maxErrors+1));
     TPattern segmentPattern(segmentIndex);
 
     clear(results);
@@ -297,85 +408,12 @@ void findCandidateCoreSegments(
         // Need to give up const here. Maybe this won't be necessary some time in the 
         // distant future... 
         TSequence & readSeq = const_cast<TSequence &>(*readIt);
-        TFinder readFinder(readSeq);
 
-        String<CandidateCoreSegmentMatch> ccsms;
-        TInfixPosMap scfInfixPositions;
+        // Filter
+        TInfixPosMap scfInfixPositions = filterSCFs(readSeq, segmentPattern, errRate);
 
-        // ####################################################################################################
-        // FILTERING
-        // ####################################################################################################
-
-        // Identify the windows within the read we have to investigate for potential
-        // core fragment matches
-        while (find(readFinder, segmentPattern, errRate, 0)) {
-            unsigned coreSegId  = readFinder.curHit->ndlSeqNo;
-            long long beginPos  = readFinder.curHit->hstkPos;
-            long long endPos    = beginPos + readFinder.curHit->bucketWidth;
-            // 0 is the lower bound for our diagonal, since we want a semi global alignment
-            beginPos            = beginPos < 0 ? 0 : beginPos;
-            endPos              = endPos < 0 ? 0 : endPos;
-            // Length of readSeq is the upper bound of our diagonal, since we want a semi global alignment
-            beginPos            = beginPos < (long long)length(readSeq) ? beginPos : (long long)length(readSeq) - 1;
-            endPos              = endPos <= (long long)length(readSeq) ? endPos : (long long)length(readSeq);
-            // Check if there was a previous hit on the same segment
-            TInfixPosMap::iterator scfInfixPosition = scfInfixPositions.find(coreSegId);
-            if (scfInfixPosition != scfInfixPositions.end()) {
-                BeginEndPos<long long> & infixPos       = scfInfixPosition->second;
-                infixPos.beginPos = infixPos.beginPos > beginPos ? beginPos : infixPos.beginPos;
-                infixPos.endPos   = infixPos.endPos < endPos ? endPos : infixPos.endPos;
-            } else {
-                BeginEndPos<long long> infixPos(beginPos, endPos);
-                if (infixPos.endPos > infixPos.beginPos)
-                    scfInfixPositions[coreSegId] = infixPos;
-            }
-        }
-
-        // ####################################################################################################
-        // VERIFICATION
-        // ####################################################################################################
-    
-        typedef BeginEndPos<long long>  TBeginEndPos;
-
-        // Find all positions where the SCF matches within the constraints
-        // specified by the user (# of errors)
-        for (TInfixPosMap::const_iterator scfInfixPosition = scfInfixPositions.begin(); scfInfixPosition != scfInfixPositions.end(); ++scfInfixPosition) {
-            unsigned coreSegId = scfInfixPosition->first;
-            TBeginEndPos const & infixPos = scfInfixPosition->second;
-            // Build the infix-SCF alignment
-            TInfix readInfix(readSeq, infixPos.beginPos, infixPos.endPos);
-            // "Pseudoinfix" to maintain type equality
-            TInfix segInfix(segmentSequences[coreSegId]);
-
-            // Use Myers finder to find all locations within constraints
-            Pattern<TInfix, Myers<> > myersPattern(segInfix);
-            Finder<TInfix> finder(readInfix);
-
-            int bestScore = MinValue<int>::VALUE;
-            String<TBeginEndPos> toExpandInfixes;
-            while (find(finder, myersPattern, -maxErrors)) 
-            {
-                if (getScore(myersPattern) < bestScore)
-                    continue;
-                if (getScore(myersPattern) > bestScore)
-                {
-                    bestScore = getScore(myersPattern);
-                    clear(toExpandInfixes);
-                }
-                TBeginEndPos bePos(MaxValue<long long>::VALUE, endPosition(finder));
-                while (findBegin(finder, myersPattern, getScore(myersPattern)))
-                    if (bePos.beginPos > static_cast<long long>(beginPosition(finder)))
-                        bePos.beginPos = beginPosition(finder);
-                appendValue(toExpandInfixes, bePos);
-            }
-
-            // Store candidate match
-            for (Iterator<String<TBeginEndPos>,Rooted>::Type it = begin(toExpandInfixes); !atEnd(it); goNext(it))
-            {
-                CandidateCoreSegmentMatch ccsm(coreSegId, it->beginPos + infixPos.beginPos, it->endPos + infixPos.beginPos);
-                appendValue(ccsms, ccsm);
-            }
-        }
+        // Verification
+        String<CandidateCoreSegmentMatch> ccsms = verifySCFHits(readSeq, scfSequences, scfInfixPositions, maxErrors);
 
         appendValue(results, ccsms);
     }
@@ -512,7 +550,8 @@ void findBestSCFs(
         StringSet<String<CandidateCoreSegmentMatch> > const & candidateMatches, // [IN]  The candidate SCF-read matches
         TSequenceSet const & readSeqs,                                          // [IN]  The read sequences
         CdrReferences const & references,                                       // [IN]  The segment reference data
-        CdrOptions const & options,
+        CdrOptions const & options,                                             // [IN]  Runtime options
+        std::vector<std::set<unsigned> > const * limSegmentIDs,                 // [IN]  Reduced sets of segment IDs to take into account
         TOverlapDirection const &                                               // [TAG] Indicating the overlap direction
         )
 {
@@ -547,6 +586,10 @@ void findBestSCFs(
         {
             for (unsigned const segmentId : scfToSegIds[ccsm.coreSegId])
             {
+                // Skip if we have a limiting set of ids and this one is not listed
+                if (limSegmentIDs != nullptr && (*limSegmentIDs)[readId].find(segmentId) == (*limSegmentIDs)[readId].end())
+                    continue;
+
                 TAlign align;
 
                 // Global overlap alignment computation
@@ -569,6 +612,19 @@ void findBestSCFs(
             }
         }
     }
+}
+
+template <typename TSegmentMatchesSet, typename TSequenceSet, typename TOverlapDirection>
+void findBestSCFs(
+        TSegmentMatchesSet & segMatchSet,                                       // [OUT] The resulting segment matches
+        StringSet<String<CandidateCoreSegmentMatch> > const & candidateMatches, // [IN]  The candidate SCF-read matches
+        TSequenceSet const & readSeqs,                                          // [IN]  The read sequences
+        CdrReferences const & references,                                       // [IN]  The segment reference data
+        CdrOptions const & options,                                             // [IN]  Runtime options
+        TOverlapDirection const &                                               // [TAG] Indicating the overlap direction
+        )
+{
+    findBestSCFs(segMatchSet, candidateMatches, readSeqs, references, options, nullptr, TOverlapDirection());
 }
 
 /********************************************************************************
@@ -632,9 +688,9 @@ void findBestSegmentMatch(
 
 template <typename TSequence, typename TGlobalData>
 void findBestVSegment(
-        StringSet<String<unsigned> > & dbMatches, // [OUT] For every read, the best matching V refs
-        StringSet<TSequence> const & vReadSeqs,   //  [IN] V read sequences
-        TGlobalData const & global)               //  [IN] The segment references
+        std::vector<std::set<unsigned> > & dbMatches, // [OUT] For every read, the best matching V refs
+        StringSet<TSequence> const & vReadSeqs,       //  [IN] V read sequences
+        TGlobalData const & global)                   //  [IN] The segment references
 {
     typedef typename Value<TSequence>::Type                             TAlphabet;
 
@@ -650,7 +706,7 @@ void findBestVSegment(
     
     // Abort if no sequences were passed
     if (empty(vReadSeqs)) {
-        clear(dbMatches);
+        dbMatches.clear();
         return;
     }
 
@@ -689,7 +745,7 @@ void findBestVSegment(
     // ####################################################################################################
 
     clear(dbMatches);
-    resize(dbMatches, length(vReadSeqs));
+    dbMatches.resize(length(vReadSeqs));
 
     String<int> bestScores;
     resize(bestScores, length(vReadSeqs), MinValue<int>::VALUE);
@@ -730,14 +786,14 @@ void findBestVSegment(
                 continue;
             } 
 
-            String<unsigned> & bestDBs = dbMatches[vReadId];
+            std::set<unsigned> & bestDBs = dbMatches[vReadId];
 
             if (segBestScore > bestScores[vReadId]) {
-                clear(bestDBs);
-                appendValue(bestDBs, segId);
+                bestDBs.clear();
+                bestDBs.insert(segId);
                 bestScores[vReadId] = segBestScore;
             } else if (segBestScore >= bestScores[vReadId]) {
-                appendValue(bestDBs, segId);
+                bestDBs.insert(segId);
             }
         }
     }
@@ -756,85 +812,73 @@ void findBestSegmentMatch(
     typedef Segment<TSequence const, InfixSegment>      TSegment;
     typedef Align<TSegment>                             TAlign;
 
+    typedef CdrReferences::TSegCoreFragmentStringSet                    TStringSet;
+    typedef Value<TStringSet>::Type                                     TRefSequence;
+    typedef typename Value<TRefSequence>::Type                          TAlphabet;
+    typedef Shape<TAlphabet, SimpleShape>                               TShape;
+    typedef Index<TStringSet, IndexQGram<TShape, OpenAddressing> >      TIndex;
+    typedef Pattern<TIndex, Swift<SwiftSemiGlobal> >                    TPattern;
+    typedef Finder<TSequence, Swift<SwiftSemiGlobal> >                  TFinder;
+    typedef std::map<unsigned, BeginEndPos<long long> >                 TInfixPosMap;
+
     CdrReferences const & references = global.references;
 
-    clear(matches);
-    reserve(matches, nRecords(queryData));
-
-    // (1) Find V segments
-
-    StringSet<String<unsigned> > vSegments;
+    // Find V segments
+    std::vector<std::set<unsigned> > vSegments;
     findBestVSegment(vSegments, queryData.fwSeqs, global);
 
-    // (3) Align V segment to VDJ read (overlap alignment)
-    // TODO is an overlap alignment really necessary? Can we just make a semi-global
-    // alignment, assuming that the read does not contain any non-V-segment sequence?
+    // Build index for SCF filtering
+    unsigned maxSCFErrors = getMaxCoreSegErrors(global.options, LeftOverlap());
+    TIndex scfIndex(references.leftSCFs);
+    resize(indexShape(scfIndex), length(references.leftSCFs[0]) / (maxSCFErrors+1));
+    TPattern segmentPattern(scfIndex);
 
     StringSet<TSequence> const & vSegSequences = references.leftSegs;
 
+    // The length of all SCFs is the same
+    double const errRate = 1.0 * global.options.maxVCoreErrors / length(references.leftSCFs[0]);
+
     // Iterate over all reads
-    for (Iterator<StringSet<String<unsigned> > const, Rooted>::Type it = begin(vSegments); !atEnd(it); goNext(it))
+    StringSet<String<CandidateCoreSegmentMatch> > scfResults;
+    for (unsigned readId = 0; readId < vSegments.size(); ++readId)
     {
-        unsigned readId = position(it);
-        TSegmentMatches readMatches;
+        TSequence & readSeq = const_cast<TSequence &>(queryData.revSeqs[readId]);
 
-        // Iterate over all matches
-        int maxScore = INT_MIN;
-        for (Iterator<String<unsigned> const, Rooted>::Type refIt = begin(*it); !atEnd(refIt); goNext(refIt))
+        std::set<unsigned> limScfIds;
+        std::set<unsigned> const & limSegIds = vSegments[readId];
+
+        if (limSegIds.empty())
         {
-            // Compute the overlap alignment between the VDJ read and the V sequence
-            TAlign align;
-            resize(rows(align), 2);
-            assignSource(row(align, 0), TSegment(queryData.revSeqs[readId]));
-
-            TSegment segSegment(vSegSequences[*refIt]);
-
-            // Clip off sequence that is downstream of the C104 triplet - this
-            // limits the analysis and the alignment score / errRate to the
-            // non-CDR3 region, just as in the single-end expansion case
-            setEndPosition(segSegment, global.references.leftMeta[*refIt].motifPos+3);
-
-            // Clip off extraneous sequence from the V-segment, that couldn't
-            // be matched to to the limited read-length
-            if (length(vSegSequences[*refIt]) > length(segSegment))
-                setBeginPosition(segSegment, length(segSegment) - length(queryData.revSeqs[readId]));
-
-            assignSource(row(align, 1), segSegment);
-
-            // TODO Check hard-coded parameters
-            int score           = globalAlignment(align, SimpleScore(1, -2, -2), AlignConfig<false,true,false,true>(), -length(segSegment), 10);
-
-            // Clip to non-CDR3 overlap region
-            int olBeginViewPos = toViewPosition(row(align, 0),0);
-            int olEndViewPos = 1 + toViewPosition(row(align, 1), length(source(row(align,1))) - 1 );
-            setClippedBeginPosition(row(align, 0), olBeginViewPos);
-            setClippedBeginPosition(row(align, 1), olBeginViewPos);
-            setClippedEndPosition(row(align, 0), olEndViewPos);
-            setClippedEndPosition(row(align, 1), olEndViewPos);
-
-            int overlapLength   = olEndViewPos - olBeginViewPos;
-            int mismatches      = ((overlapLength - score) / 3);
-            double errRate      = 1.0 * mismatches / overlapLength;
-            int unitScore       = overlapLength - 2 * mismatches;
-
-            // We keep track of the maximum observed score since we can still
-            // discard alignments based on the V-segment against VDJ-read
-            // alignment to refine the results obtained from the V-read
-            // alignments
-            if (unitScore < maxScore)
-                continue;
-
-            if (overlapLength >= global.options.pairedMinVOverlap && errRate <= global.options.pairedMaxErrRateVOverlap) {
-                if (unitScore > maxScore) {
-                    clear(readMatches);
-                    maxScore = unitScore;
-                }
-                appendValue(readMatches, TSegmentMatch(*refIt, unitScore, align));
-            }
+            appendValue(scfResults, String<CandidateCoreSegmentMatch>());
         }
+        else
+        {
+            for (unsigned segId : limSegIds)
+                limScfIds.insert(references.leftSegToScfId[segId]);
 
-        appendValue(matches, readMatches);
+            // Filter
+            TInfixPosMap scfInfixPositions = filterSCFs(readSeq, segmentPattern, errRate, &limScfIds);
+
+            // Verification
+            String<CandidateCoreSegmentMatch> ccsms = verifySCFHits(readSeq,
+                    references.leftSCFs,
+                    scfInfixPositions,
+                    global.options.maxVCoreErrors);
+
+            appendValue(scfResults, ccsms);
+        }
     }
+
+    // Find best segments
+    StringSet<TQueryDataSequence> const & seqs = getVDJReadSequences(queryData);
+    findBestSCFs(
+            matches,
+            scfResults,
+            seqs,
+            references,
+            global.options,
+            &vSegments,
+            LeftOverlap());
 }
 
 #endif

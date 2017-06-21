@@ -90,6 +90,7 @@ struct CdrReferences {
     StringSet<String<unsigned> > leftIdentOffsets,              // The left and right identity offsets
         rightIdentOffsets;
     String<unsigned> leftToFirstAllel, rightToFirstAllel;       // Map pointing to the ID of the first allel for all allels
+    String<unsigned> leftSegToScfId, rightSegToScfId;           // Map from segment ID to SCF id
 };
 
 struct CdrOutputFiles {

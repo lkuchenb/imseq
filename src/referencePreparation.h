@@ -183,8 +183,7 @@ void readAndPreprocessReferences(CdrReferences & references, CdrOptions const & 
     // PROCESS J-SEGMENTS
     // ============================================================================
 
-//    std::cerr << "[I] Building J SCF: offset=" << options.jSCFOffset << ", length=" << options.jSCFLength << std::endl;
-    unsigned val = buildSegmentCoreFragments(references.rightSCFs, references.rightSCFToSegIds, references.rightSCFPos, references.rightSegs, references.rightMeta, options.jSCFOffset, options.jSCFLength);                       
+    unsigned val = buildSegmentCoreFragments(references.rightSCFs, references.rightSCFToSegIds, references.rightSegToScfId, references.rightSCFPos, references.rightSegs, references.rightMeta, options.jSCFOffset, options.jSCFLength);
     if (BUILD_SEGMENT_CORE_FRAGMENTS_GOOD != val) {
         std::cerr << "Failed to build core fragment for '" << getDescriptor(references.rightMeta[val]) << "'. Boundaries violated.\n";
         exit(1);
@@ -196,8 +195,7 @@ void readAndPreprocessReferences(CdrReferences & references, CdrOptions const & 
     // PROCESS V-SEGMENTS
     // ============================================================================
 
-//    std::cerr << "[I] Building V SCF: offset=" << options.vSCFOffset << ", start=" << 3 - static_cast<int>(options.vSCFLength) + options.vSCFOffset << ", length=" << options.vSCFLength << std::endl;
-    val = buildSegmentCoreFragments(references.leftSCFs, references.leftSCFToSegIds, references.leftSCFPos, references.leftSegs, references.leftMeta, 3 - static_cast<int>(options.vSCFLength) + options.vSCFOffset, options.vSCFLength);
+    val = buildSegmentCoreFragments(references.leftSCFs, references.leftSCFToSegIds, references.leftSegToScfId, references.leftSCFPos, references.leftSegs, references.leftMeta, 3 - static_cast<int>(options.vSCFLength) + options.vSCFOffset, options.vSCFLength);
     if (BUILD_SEGMENT_CORE_FRAGMENTS_GOOD != val) {
         std::cerr << "Failed to build core fragment for '" << getDescriptor(references.leftMeta[val]) << "'. Boundaries violated.\n";
         exit(1);
