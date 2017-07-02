@@ -131,6 +131,8 @@ bool loadSegmentFiles(
         } else if (meta.segType == "J") {
             appendValue(jSegSequences, sequences[position(it)]);
             appendValue(jSegMetaInfo, meta);
+        } else if (meta.segType == "D") {
+            continue;
         } else {
             std::cerr << "Invalid meta information (" << *it  << ") in file " << path << std::endl;
             return false;
