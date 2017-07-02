@@ -22,6 +22,8 @@
 #ifndef CDRFINDER_CMDLINE_H
 #define CDRFINDER_CMDLINE_H
 
+#include <thread>
+
 #include <seqan/arg_parse.h>
 #include <seqan/stream.h>
 #include <seqan/seq_io.h>
@@ -392,7 +394,14 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
 
     options.cacheMatches = true;
 #ifdef __WITHCDR3THREADS__
-    getOptionValue(options.jobs, parser, "j");
+    if (isSet(parser, "j"))
+    {
+        getOptionValue(options.jobs, parser, "j");
+    }
+    else
+    {
+        options.jobs = std::thread::hardware_concurrency();
+    }
 #endif
 //    setConditionalLog(parser, outFiles.clusterCLog, "cl");
     options.outputAligments = isSet(parser, "pa");

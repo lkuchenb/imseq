@@ -87,6 +87,7 @@ int main(int argc, char ** argv)
     for (int i=0; i<argc; ++i)
         std::cerr << argv[i] << ' ';
     std::cerr << std::endl;
+    std::cerr << "      Using up to " << options.jobs << " threads\n";
 
     // ============================================================================
     // Call the workflow
