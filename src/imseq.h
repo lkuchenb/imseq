@@ -2457,7 +2457,7 @@ void printStats(TStream & stream, String<RejectEvent> const & rejectEvents,
         "  |   ........... Number of reads: " << ii.totalReadCount << '\n' <<
         "  |   .................. Rejected: " << length(rejectEvents) << '\n' <<
         "  |   .. Max read length (passed): " << ii.maxReadLength << '\n' << 
-        "  |   .. Min read length (passed): " << ii.minReadLength << '\n' <<
+        "  |   .. Min read length (passed): " << (ii.minReadLength != -1u ? ii.minReadLength : 0) << '\n' <<
         "  |   .... Number of unique reads: " << stats.nTotalUniqueReads << '\n';
 }
 

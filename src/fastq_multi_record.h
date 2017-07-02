@@ -551,7 +551,7 @@ bool readRecords(FastqMultiRecordCollection<TSequencingSpec> & collection,
             appendValue(rejectEvents, RejectEvent(rec.id, r));
         }
     }
-    progBar->clear();
+    if (progBar != nullptr) progBar->clear();
     delete progBar;
     return false;
 }
