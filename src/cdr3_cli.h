@@ -157,7 +157,7 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     addSection(parser, "V/J segment alignment (Expert settings)");
     addOption(parser, ArgParseOption("jcl", "j-core-length", "Length of the J core fragment.", ArgParseArgument::INTEGER));
     setMinValue(parser, "jcl", "5");
-    setMaxValue(parser, "jcl", "20");
+    setMaxValue(parser, "jcl", "45");
     setDefaultValue(parser, "jcl", 12);
     addOption(parser, ArgParseOption("jco", "j-core-offset", "Offset of the V core fragment.", ArgParseArgument::INTEGER));
     setDefaultValue(parser, "jco", -6);
