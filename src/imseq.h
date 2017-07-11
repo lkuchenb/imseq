@@ -195,7 +195,8 @@ std::mutex CACHE_STORE_MUTEX;
 // Typedefs
 // ============================================================================
 
-typedef std::map<Clone<Dna5>, ClusterResult>    TCloneStore;
+typedef std::map<Clone<Dna5>, ClusterResult>     TCloneStore;
+typedef std::vector<Dna5CloneStore::value_type*> TCloneStorePtrs;
 
 /**
  * Transforms a String<T> into a String<char>, making use of convert() and
@@ -744,6 +745,7 @@ inline void computeRedistCounts(String<unsigned> & redistributionCounts, String<
     // Compute the total number of reads within the target clonotypes
     unsigned sum = 0;
     for (Iterator<String<ClusterPair> const,Rooted>::Type it = begin(targetPairs); !atEnd(it); goNext(it)) {
+        ClusterPair const & cPair = *it;
         TCloneStore::const_iterator cse = cloneStore.find(it->getMajorClone());
         if (cse == cloneStore.end()) {
             std::cerr << "[ERR] error in computeRedistCounts() [1]" << std::endl;
@@ -843,16 +845,22 @@ unsigned maxLength(T const & a, T const & b) {
 std::mutex MUTEX_findClusterMates_store_result, MUTEX_findClusterMates_write_log;
 #endif
 template<typename TCdrGlobalData>
-void findClusterMates(TCloneStore::value_type const & queryElement, 
-        TCloneStore::const_iterator const & beginRefElements, 
-        TCloneStore::const_iterator const & endRefElements,
+void findClusterMates(
+        TCloneStorePtrs::value_type const queryElementPtr,
+        TCloneStorePtrs::const_iterator const beginRefElements,
+        TCloneStorePtrs::const_iterator const endRefElements,
         TCdrGlobalData & global,
-        TLQPositionStore & lqPositionStore, 
+        TLQPositionStore & lqPositionStore,
         CloneToPairsMap & clusterPairsByMinor,
         ClusterStats & clusterStats,
-        ProgressBar & progBar) 
+        ProgressBar & progBar)
 {
     CdrOptions const & options = global.options;
+
+    if (beginRefElements == endRefElements)
+        return;
+
+    TCloneStore::value_type const & queryElement = *queryElementPtr;
 
     unsigned nPwAlignments = 0;
     unsigned long long counter = 0;
@@ -860,10 +868,14 @@ void findClusterMates(TCloneStore::value_type const & queryElement,
 
     std::stringstream clusterEvalLogSS;
 
-    for (TCloneStore::const_iterator tar = beginRefElements; tar!=endRefElements; ++tar) {
+    // Map iterator is bidirectional. We go from the most distant element
+    // (frequency wise) to the nearest element and abort when the frequency
+    // threshold is violated
+    TCloneStorePtrs::const_iterator tar = endRefElements - 1;
+    for (; tar>beginRefElements; --tar) {
         ++counter;
 
-        TCloneStore::value_type const & targetElement = *tar;
+        TCloneStore::value_type const & targetElement = **tar;
 
         double countRatio = static_cast<double>(queryElement.second.count) / static_cast<double>(targetElement.second.count);
         if (countRatio > 1)
@@ -871,9 +883,14 @@ void findClusterMates(TCloneStore::value_type const & queryElement,
 
         ClusterFailure hasFailed = NO_FAILURE;
 
+        // Check if the ratio below or equal to the user specified threshold
+        if (countRatio > global.options.maxClusterRatio) {
+            // The input clonotypes are sorted, i.e. we cannot find any more targets beyond this point
+            break;
+        }
+
         // Check if the two CDR3 sequences have the same length
-        unsigned lenDiff = std::abs(static_cast<int>(length(queryElement.first.cdrSeq)) - static_cast<int>(length(targetElement.first.cdrSeq)));
-        if (lenDiff) {
+        else if (std::abs(static_cast<int>(length(queryElement.first.cdrSeq)) - static_cast<int>(length(targetElement.first.cdrSeq)))) {
             hasFailed = CDR3LEN_MISMATCH;
         }
 
@@ -881,11 +898,6 @@ void findClusterMates(TCloneStore::value_type const & queryElement,
         // intersect
         else if ( !doIntersectSTL(queryElement.first.VIds, targetElement.first.VIds) || !doIntersectSTL(queryElement.first.JIds, targetElement.first.JIds)) {
             hasFailed = VJ_MISMATCH;
-        } 
-        
-        // Check if the ratio below or equal to the user specified threshold
-        else if (countRatio > global.options.maxClusterRatio) {
-            hasFailed = RATIO_EXCEEDED;
         }
 
         else {
@@ -944,7 +956,6 @@ void findClusterMates(TCloneStore::value_type const & queryElement,
                 continue; // <= Code execution ends here for POSITIVES
             } 
         }
-
     }
 
 #ifdef __WITHCDR3THREADS__
@@ -975,7 +986,7 @@ inline void runClonotypeClustering(TCdrGlobalData & global, Dna5CloneStore & clo
     if ((!global.options.simpleClustering) && (!global.options.qualClustering))
         return;
 
-    typedef std::multiset<const Clone<Dna5>*, ClonesBySize > TClonePointerMultiSet;
+    typedef std::set<const Clone<Dna5>*, ClonesBySize > TClonePointerMultiSet;
 
     std::cerr << "===== Posterior clustering of clonotypes" << std::endl;
     std::cerr << "  |-- Quality clustering: " << offOnBool(global.options.qualClustering) << "\n";
@@ -1002,6 +1013,17 @@ inline void runClonotypeClustering(TCdrGlobalData & global, Dna5CloneStore & clo
 
     ClusterStats clusterStats;
 
+    // Sort the clonotypes by size, to allow efficient pair search
+    TCloneStorePtrs clonePtrsBySize;
+    clonePtrsBySize.reserve(cloneStore.size());
+    for (auto & x : cloneStore)
+        clonePtrsBySize.push_back(&x);
+    std::sort(clonePtrsBySize.begin(), clonePtrsBySize.end(),
+            [](TCloneStorePtrs::value_type const & a, TCloneStorePtrs::value_type const & b)
+            {
+                return a->second.count < b->second.count;
+            });
+
     // -!- ==========================================================================
     // -!- Multithreading dependent code - if compiled with multi-threading support,
     // -!- a ThreadPool is created and handles one task for every for-loop
@@ -1016,14 +1038,14 @@ inline void runClonotypeClustering(TCdrGlobalData & global, Dna5CloneStore & clo
 #endif
 
         unsigned __cnt = 0;
-        for (Dna5CloneStore::const_iterator cluster1 = cloneStore.begin(); cluster1 != cloneStore.end(); ++cluster1, ++__cnt) {
-            Dna5CloneStore::const_iterator cluster2 = cluster1;
+        for (TCloneStorePtrs::const_iterator cluster1 = clonePtrsBySize.begin(); cluster1 != clonePtrsBySize.end(); ++cluster1, ++__cnt) {
+            TCloneStorePtrs::const_iterator cluster2 = cluster1;
             ++cluster2;
 #ifdef __WITHCDR3THREADS__
-            threadPool.enqueue<void>([cluster1, cluster2, &cloneStore, &global, &lqPositionStore, &clusterPairsByMinor, &clusterStats, &progBar]()
+            threadPool.enqueue<void>([cluster1, cluster2, &clonePtrsBySize, &global, &lqPositionStore, &clusterPairsByMinor, &clusterStats, &progBar]()
                     {
 #endif
-                    findClusterMates(*cluster1, cluster2, cloneStore.end(), global, lqPositionStore, clusterPairsByMinor, clusterStats, progBar);
+                    findClusterMates(*cluster1, cluster2, clonePtrsBySize.end(), global, lqPositionStore, clusterPairsByMinor, clusterStats, progBar);
 #ifdef __WITHCDR3THREADS__
                     }
                     );
@@ -1032,11 +1054,11 @@ inline void runClonotypeClustering(TCdrGlobalData & global, Dna5CloneStore & clo
         }
     } // Destructs ThreadPool, joins all threads
 
+
     progBar.clear();
 
     std::cerr << "  |-- Required cpu time: " << formatSeconds(double(std::clock() - clockBeforeClustAlign) / CLOCKS_PER_SEC) << std::endl;;
     std::cerr << "  |-- computed " << clusterStats.alignmentCount << " pairwise alignments." << std::endl;
-//    std::cerr << "  |~~ [DEBUG] Number of checked pairs: " << clusterStats.checkedPairs << std::endl;
 
     // ==========================================================================
     // Store the minors by size
@@ -1048,14 +1070,6 @@ inline void runClonotypeClustering(TCdrGlobalData & global, Dna5CloneStore & clo
 
     for (CloneToPairsMap::TStore::const_iterator it = clusterPairsByMinor.getMap().begin(); it!=clusterPairsByMinor.getMap().end(); ++it)
         minorsBySize.insert(&(it->first));
-
-    // ==========================================================================
-    // DEBUG
-    // ==========================================================================
-
-    uint64_t foundPairs = 0;
-    for (CloneToPairsMap::TStore::const_iterator it = clusterPairsByMinor.getMap().begin(); it!=clusterPairsByMinor.getMap().end(); ++it)
-        foundPairs += it->second.size();
 
     // ============================================================================
     // Output some info about the potential clustering impact
