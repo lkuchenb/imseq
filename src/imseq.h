@@ -886,6 +886,7 @@ void findClusterMates(
         // Check if the ratio below or equal to the user specified threshold
         if (countRatio > global.options.maxClusterRatio) {
             // The input clonotypes are sorted, i.e. we cannot find any more targets beyond this point
+            counter += beginRefElements - tar - 1;
             break;
         }
 
