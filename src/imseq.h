@@ -2513,11 +2513,27 @@ int main_generic(CdrGlobalData<TSequencingSpec> & global, CdrOptions & options, 
         writeBarcodeStats(stats, options.bstPath);
 
     // ============================================================================
-    // TUNE V-SCF LENGTH, READ REFERENCE SEGMENT SEQUENCES
+    // READ REFERENCE SEGMENT SEQUENCES, TUNE SCF RELATED PARAMETER
     // ============================================================================
 
-    autoTuneVSCFLength(options, inputInformation.minReadLength);
-    readAndPreprocessReferences(references, global.options);
+    bool autoTuneVSCF = options.vSCFLength == AUTO_TUNE;
+    readAndPreprocessReferences(references, options, inputInformation.minReadLength);
+    if (autoTuneVSCF)
+    {
+        std::cerr << "  |-- Setting V SCF length to " << options.vSCFLength << '\n';
+    }
+
+    if (options.maxVCoreErrors == AUTO_TUNE)
+    {
+        options.maxVCoreErrors = std::ceil(options.maxErrRateV * options.vSCFLength);
+        std::cerr << "  |-- Max V SCF errors: " << options.maxVCoreErrors << '\n';
+    }
+
+    if (options.maxJCoreErrors == AUTO_TUNE)
+    {
+        options.maxJCoreErrors = std::ceil(options.maxErrRateJ * options.jSCFLength);
+        std::cerr << "  |-- Max J SCF errors: " << options.maxJCoreErrors << '\n';
+    }
 
     std::cerr << "  |-- Read " << length(global.references.leftSegs) << " reference V segments." << std::endl;
     std::cerr << "  |-- Read " << length(global.references.rightSegs) << " reference J segments." << std::endl;

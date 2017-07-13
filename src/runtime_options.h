@@ -35,6 +35,8 @@
 
 #include "sequence_data.h"
 
+#define AUTO_TUNE -1u
+
 struct CdrOptions {
     CharString refFasta ;
     CharString rlogPath;

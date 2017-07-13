@@ -170,22 +170,57 @@ void buildToFirstAllelMap(String<SegmentMeta> const & meta, String<unsigned> & t
     }
 }
 
-void readAndPreprocessReferences(CdrReferences & references, CdrOptions const & options) {
+void readAndPreprocessReferences(CdrReferences & references, CdrOptions & options, unsigned autoTuneMinReadLen) {
 
     // ============================================================================
     // Read the segment file
     // ============================================================================
 
-    if (!loadSegmentFiles(references.leftSegs, references.leftMeta, references.leftIdentOffsets, references.rightSegs, references.rightMeta, references.rightIdentOffsets, options.refFasta)) {
+    if (!loadSegmentFiles(references.leftSegs,
+                references.leftMeta,
+                references.leftIdentOffsets,
+                references.rightSegs,
+                references.rightMeta,
+                references.rightIdentOffsets,
+                options.refFasta)) {
         std::cerr << "Reading the segments reference sequences failed!" << std::endl;
         exit(1);
+    }
+
+    if (options.vSCFLength == AUTO_TUNE)
+    {
+        // Compute the maximum V segment length based on the read V segments
+        unsigned maxVSCFLenRef = -1u;
+        for (auto & meta : references.rightMeta)
+        {
+            unsigned len = meta.motifPos + 2;
+            if (len < maxVSCFLenRef)
+                maxVSCFLenRef = len;
+        }
+        // Determine the V SCF length based on the data
+        unsigned maxVSCFLenData = -1u;
+        if (autoTuneMinReadLen <= 110)
+            maxVSCFLenData = 10;
+        else
+            maxVSCFLenRef = autoTuneMinReadLen - 110;
+        options.vSCFLength = maxVSCFLenRef < maxVSCFLenData ? maxVSCFLenRef : maxVSCFLenData;
+        // Maximum length
+        if (options.vSCFLength > 60)
+            options.vSCFLength = 60;
     }
 
     // ============================================================================
     // PROCESS J-SEGMENTS
     // ============================================================================
 
-    unsigned val = buildSegmentCoreFragments(references.rightSCFs, references.rightSCFToSegIds, references.rightSegToScfId, references.rightSCFPos, references.rightSegs, references.rightMeta, options.jSCFOffset, options.jSCFLength);
+    unsigned val = buildSegmentCoreFragments(references.rightSCFs,
+            references.rightSCFToSegIds,
+            references.rightSegToScfId,
+            references.rightSCFPos,
+            references.rightSegs,
+            references.rightMeta,
+            options.jSCFOffset,
+            options.jSCFLength);
     if (BUILD_SEGMENT_CORE_FRAGMENTS_GOOD != val) {
         std::cerr << "Failed to build core fragment for '" << getDescriptor(references.rightMeta[val]) << "'. Boundaries violated.\n";
         exit(1);
@@ -197,7 +232,14 @@ void readAndPreprocessReferences(CdrReferences & references, CdrOptions const & 
     // PROCESS V-SEGMENTS
     // ============================================================================
 
-    val = buildSegmentCoreFragments(references.leftSCFs, references.leftSCFToSegIds, references.leftSegToScfId, references.leftSCFPos, references.leftSegs, references.leftMeta, 3 - static_cast<int>(options.vSCFLength) + options.vSCFOffset, options.vSCFLength);
+    val = buildSegmentCoreFragments(references.leftSCFs,
+            references.leftSCFToSegIds,
+            references.leftSegToScfId,
+            references.leftSCFPos,
+            references.leftSegs,
+            references.leftMeta,
+            3 - static_cast<int>(options.vSCFLength) + options.vSCFOffset,
+            options.vSCFLength);
     if (BUILD_SEGMENT_CORE_FRAGMENTS_GOOD != val) {
         std::cerr << "Failed to build core fragment for '" << getDescriptor(references.leftMeta[val]) << "'. Boundaries violated.\n";
         exit(1);

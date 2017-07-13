@@ -161,16 +161,14 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     setDefaultValue(parser, "jcl", 12);
     addOption(parser, ArgParseOption("jco", "j-core-offset", "Offset of the V core fragment.", ArgParseArgument::INTEGER));
     setDefaultValue(parser, "jco", -6);
-    addOption(parser, ArgParseOption("vcl", "v-core-length", "Length of the V core fragment. Default: Automatically select value between 10 and 20 based on minimum observed read length.", ArgParseArgument::INTEGER));
+    addOption(parser, ArgParseOption("vcl", "v-core-length", "Length of the V core fragment. Default: Automatically select based on minimum observed read length.", ArgParseArgument::INTEGER));
     setMinValue(parser, "vcl", "5");
     addOption(parser, ArgParseOption("vco", "v-core-offset", "Offset of the V core fragment.", ArgParseArgument::INTEGER));
     setDefaultValue(parser, "vco", 0);
-    addOption(parser, ArgParseOption("vce", "v-core-errors", "Maximum number of errors when matching the V core fragments.", ArgParseArgument::INTEGER));
+    addOption(parser, ArgParseOption("vce", "v-core-errors", "Maximum number of errors when matching the V core fragments. (Default: Match -ev).", ArgParseArgument::INTEGER));
     setMinValue(parser, "vce", "0");
-    setDefaultValue(parser, "vce", 1);
-    addOption(parser, ArgParseOption("jce", "j-core-errors", "Maximum number of errors when matching the J core fragments.", ArgParseArgument::INTEGER));
+    addOption(parser, ArgParseOption("jce", "j-core-errors", "Maximum number of errors when matching the J core fragments. (Default: Match -ej).", ArgParseArgument::INTEGER));
     setMinValue(parser, "jce", "0");
-    setDefaultValue(parser, "jce", 2);
 
     //================================================================================
     // QUALITY CONTROL [Alignment score thresholds, q-score thresholds]
@@ -358,15 +356,25 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     options.maxQualityValue = 0;
     getOptionValue(options.maxErrRateV, parser, "ev");
     getOptionValue(options.maxErrRateJ, parser, "ej");
-    getOptionValue(options.maxVCoreErrors, parser, "vce");
-    getOptionValue(options.maxJCoreErrors, parser, "jce");
+
+    if (isSet(parser, "vce"))
+        getOptionValue(options.maxVCoreErrors, parser, "vce");
+    else
+        options.maxVCoreErrors = AUTO_TUNE;
+
+    if (isSet(parser, "jce"))
+        getOptionValue(options.maxJCoreErrors, parser, "jce");
+    else
+        options.maxJCoreErrors = AUTO_TUNE;
 
     getOptionValue(options.jSCFLength, parser, "jcl");
     getOptionValue(options.jSCFOffset, parser, "jco");
     getOptionValue(options.vSCFOffset, parser, "vco");
-    options.vSCFLengthAuto = !isSet(parser, "vcl");
-    if (!options.vSCFLengthAuto)
+
+    if (isSet(parser, "vcl"))
         getOptionValue(options.vSCFLength, parser, "vcl");
+    else
+        options.vSCFLength = AUTO_TUNE;
 
     getOptionValue(options.qmin, parser, "mq");
     getOptionValue(options.barcodeMaxError, parser, "bse");
