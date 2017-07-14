@@ -2434,18 +2434,22 @@ int runAnalysis(CdrGlobalData<TSequencingSpec> & global,
 
     nucCloneStore.clear();
 
-    std::cerr << "===== Sorting output files\n";
-
     closeOfStream(__rejectLog);
-    if (__rejectLog != NULL) {
-        std::cerr << "  |-- Rejectlog\n";
-        sortFile(options.rlogPath);
-    }
-
     closeOfStream(global.outFiles._fullOutStream);
-    if (global.outFiles._fullOutStream != NULL) {
-        std::cerr << "  |-- Detailed output file\n";
-        sortFile(options.fullOut, 1);
+
+    if (options.sortOutputFiles)
+    {
+        std::cerr << "===== Sorting output files\n";
+
+        if (__rejectLog != NULL) {
+            std::cerr << "  |-- Rejectlog\n";
+            sortFile(options.rlogPath);
+        }
+
+        if (global.outFiles._fullOutStream != NULL) {
+            std::cerr << "  |-- Detailed output file\n";
+            sortFile(options.fullOut, 1);
+        }
     }
 
     std::cerr << "===== All done. Terminating." << std::endl;

@@ -108,6 +108,7 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     addOption(parser, ArgParseOption("on", "out-nuc", "Output file path for untranslated clonotypes.", (ArgParseArgument::STRING)));
     addOption(parser, ArgParseOption("o", "out", "Output file path for verbose output per analyzed read.", (ArgParseArgument::STRING)));
     addOption(parser, ArgParseOption("s", "seq", "Include read sequence in output (-o) file."));
+    addOption(parser, ArgParseOption("so", "sort-output", "Sort the -o and -rlg output files"));
 
     //================================================================================
     // Read preprocessing
@@ -328,6 +329,7 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     getOptionValue(options.bcClustMaxFreqRate, parser, "bfr");
     options.barcodeVDJRead = isSet(parser, "bvdj");
     options.rdtWithSequence = isSet(parser, "s");
+    options.sortOutputFiles = isSet(parser, "so");
 
     // -bst --barcode-stats
     if (isSet(parser, "bst") && options.barcodeLength > 0)
