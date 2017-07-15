@@ -872,7 +872,7 @@ void findClusterMates(
     // (frequency wise) to the nearest element and abort when the frequency
     // threshold is violated
     TCloneStorePtrs::const_iterator tar = endRefElements - 1;
-    for (; tar>beginRefElements; --tar) {
+    for (; tar>=beginRefElements; --tar) {
         ++counter;
 
         TCloneStore::value_type const & targetElement = **tar;
@@ -883,8 +883,11 @@ void findClusterMates(
 
         ClusterFailure hasFailed = NO_FAILURE;
 
-        // Check if the ratio below or equal to the user specified threshold
-        if (countRatio > global.options.maxClusterRatio) {
+        // Check if the ratio below or equal to the user specified threshold. A
+        // maximum threshold of 1.0 still requires one clonotype to be more
+        // abundant than the other, i.e. it no longer constraints the ratio but
+        // still constraints the absolute counts
+        if (queryElement.second.count == targetElement.second.count || countRatio > global.options.maxClusterRatio) {
             // The input clonotypes are sorted, i.e. we cannot find any more targets beyond this point
             counter += beginRefElements - tar - 1;
             break;
@@ -987,7 +990,7 @@ inline void runClonotypeClustering(TCdrGlobalData & global, Dna5CloneStore & clo
     if ((!global.options.simpleClustering) && (!global.options.qualClustering))
         return;
 
-    typedef std::set<const Clone<Dna5>*, ClonesBySize > TClonePointerMultiSet;
+    typedef std::multiset<const Clone<Dna5>*, ClonesBySize > TClonePointerMultiSet;
 
     std::cerr << "===== Posterior clustering of clonotypes" << std::endl;
     std::cerr << "  |-- Quality clustering: " << offOnBool(global.options.qualClustering) << "\n";
@@ -1100,6 +1103,11 @@ inline void runClonotypeClustering(TCdrGlobalData & global, Dna5CloneStore & clo
 
     ClusterLog clusterLog;
 
+    // We not again iterate through the minors by size. Since there are likely
+    // many clonotypes with an equal read count, which might be ordered
+    // differently this time. It is therefore important that we do not allow
+    // equally sized clonotypes to be clustered, even when the maximum ratio is
+    // set to 1.0!
     for (TClonePointerMultiSet::const_iterator it = minorsBySize.begin(); it!=minorsBySize.end(); ++it) {
         CloneToPairsMap::TStore::mapped_type & majors = clusterPairsByMinor[**it];
         Clone<Dna5> modClone = **it;
