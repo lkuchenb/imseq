@@ -52,7 +52,7 @@
 #define  OPT_TRUNC_READS        0u
 #define  OPT_MAX_ERRORS_LQ      4
 #define  OPT_MAX_ERRORS_HQ      2
-#define  OPT_MAX_CLUST_RATIO    0.1
+#define  OPT_MAX_CLUST_RATIO    0.5
 #define  OPT_CLUST_SD           1.0
 #define  OPT_QMINCLUST_DEFAULT  30.0
 #define  OPT_MAX_QUALITY_VALUE  40
