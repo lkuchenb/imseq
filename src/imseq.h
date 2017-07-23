@@ -296,13 +296,27 @@ void open(std::ifstream & is, const char * filename, CharString const & mode) {
     is.open(filename, std::ios_base::in | std::ios_base::binary);
 }
 
+struct SumStats
+{
+    double mean, sd, median;
+    SumStats() : mean(0), sd(0), median(0) {}
+    SumStats(double mean, double sd, double median) : mean(mean), sd(sd), median(median) {}
+};
 
 template<typename TContainer>
-inline std::pair<double,double> meanSd(TContainer const & c) {
+inline SumStats calcSumStats(TContainer const & c) {
     double mean = 0;
+    typedef std::vector<typename Value<TContainer>::Type> TVec;
+    TVec sorted;
     for (typename Iterator<TContainer const, Rooted>::Type it = begin(c); !atEnd(it); goNext(it))
+    {
         mean += *it;
+    }
     mean /= length(c);
+    sorted.insert(sorted.end(), begin(c), end(c));
+    std::sort(sorted.begin(), sorted.end());
+
+    double median = (sorted.size() % 2 == 0) ? ((sorted[sorted.size()/2] + sorted[sorted.size()/2-1])/2) : sorted[sorted.size()/2];
 
     double sd = 0;
     for (typename Iterator<TContainer const, Rooted>::Type it = begin(c); !atEnd(it); goNext(it)) {
@@ -311,7 +325,7 @@ inline std::pair<double,double> meanSd(TContainer const & c) {
     }
     sd = sd / (length(c) - 1);
     sd = std::sqrt(sd);
-    return(std::make_pair(mean,sd));
+    return(SumStats(mean, sd, median));
 }
 
 
@@ -716,8 +730,9 @@ inline std::set<unsigned> const getLQPositions(TLQPositionStore & store, Cluster
     if (it != store.end())
         return(it->second);
 
-    std::pair<double,double> meanSDVals = meanSd(cluRes.avgQVals);
-    double maxVal = meanSDVals.first - options.minSdDevi * meanSDVals.second;
+//    std::pair<double,double> meanSDVals = meanSd(cluRes.avgQVals);
+    SumStats sumStats = calcSumStats(cluRes.avgQVals);
+    double maxVal = sumStats.median - options.minSdDevi * sumStats.sd;
     std::set<unsigned> positions;
     for (unsigned i=0; i<length(cluRes.avgQVals); ++i)
         if (cluRes.avgQVals[i] <= maxVal)
