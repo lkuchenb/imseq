@@ -189,22 +189,23 @@ void readAndPreprocessReferences(CdrReferences & references, CdrOptions & option
 
     if (options.vSCFLength == AUTO_TUNE)
     {
-        // Compute the maximum V segment length based on the read V segments
+        // Compute the maximum V segment length based on the read V segments.
+        // The maximum V segment length is the shortest non-CDR3 V reference
+        // segment length.
         unsigned maxVSCFLenRef = -1u;
-        for (auto & meta : references.rightMeta)
+        for (auto & meta : references.leftMeta)
         {
             unsigned len = meta.motifPos + 2;
             if (len < maxVSCFLenRef)
                 maxVSCFLenRef = len;
         }
         // Determine the V SCF length based on the data
-        unsigned maxVSCFLenData = -1u;
-        if (autoTuneMinReadLen <= 110)
-            maxVSCFLenData = 10;
+        unsigned l = -1u;
+        if (autoTuneMinReadLen <= 120)
+            l = 10;
         else
-            maxVSCFLenRef = autoTuneMinReadLen - 110;
-        options.vSCFLength = maxVSCFLenRef < maxVSCFLenData ? maxVSCFLenRef : maxVSCFLenData;
-        // Maximum length
+            l = autoTuneMinReadLen - 110;
+        options.vSCFLength = l > maxVSCFLenRef ? maxVSCFLenRef : l;
         if (options.vSCFLength > 60)
             options.vSCFLength = 60;
     }
