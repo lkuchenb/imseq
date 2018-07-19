@@ -17,4 +17,4 @@ script:
   - cmake --version
   - cmake -DCMAKE_BUILD_TYPE=Release ..
   - make VERBOSE=1
-  - cd ..
+  - ./imseq --version
