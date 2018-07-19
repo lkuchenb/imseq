@@ -31,6 +31,7 @@
 #include <iomanip>
 #include <algorithm>
 #include <limits>
+#include <cctype>
 
 #include <seqan/basic.h>
 #include <seqan/sequence.h>
@@ -110,22 +111,21 @@ inline unsigned viewEndPosition(TRow const &);
 // Tags, Classes, Enums
 // ============================================================================
 
-
 struct AnalysisResult{
     Clone<Dna5>     clone;
-    RejectReason    reject;
-    CharString      fullOutSuffix;
-    String<double>     cdrQualities;
-    
-    AnalysisResult(Clone<Dna5> _clone, CharString _fullOutSuffix, String<uint64_t> _cdrQualities) : clone(_clone), fullOutSuffix(_fullOutSuffix), cdrQualities(_cdrQualities) { 
+    RejectReason     reject;
+    CharString       fullOutSuffix;
+    String<double>   cdrQualities;
+    String<char>     exonSeq;
+
+    AnalysisResult(Clone<Dna5> _clone, CharString _fullOutSuffix, String<uint64_t> _cdrQualities, String<char> exonSeq = "")
+        : clone(_clone), fullOutSuffix(_fullOutSuffix), cdrQualities(_cdrQualities), exonSeq(exonSeq) {
         reject = NONE;
     }
 
     AnalysisResult(RejectReason r) : reject(r) { }
 
-    AnalysisResult() {
-        reject = NONE;
-    }
+    AnalysisResult() : reject(NONE) { }
 };
 
 inline bool operator==(const AnalysisResult& lhs, const AnalysisResult& rhs)
@@ -1824,6 +1824,100 @@ inline CharString getTabSepSequences(QueryData<PairedEnd> const & qData, unsigne
     return joined;
 }
 
+template <typename TAlign, typename TIter>
+void appendGeneSegment(String<char> & target, TAlign const & align, TIter readRowBegin, TIter readRowEnd, size_t skip = 0)
+{
+    typedef typename Row<TAlign>::Type            TRow;
+
+    TRow const & segRow  = row(align,1);
+
+    for (TIter readRowIt = readRowBegin + skip; !atEnd(readRowIt) && readRowIt != readRowEnd; goNext(readRowIt))
+    {
+        // If there is an insertion in the read sequence, skip it
+        if (isGap(segRow, position(readRowIt)))
+            continue;
+        // If there is a missing base in the read sequence, copy the reference
+        // base instead and mask it using lower case
+        if (isGap(readRowIt))
+        {
+            TIter segRowIt = iter(segRow, position(readRowIt));
+            appendValue(target, ::tolower(convert<char>(*segRowIt)));
+        }
+        // Otherwise, use the read sequence as is
+        else
+        {
+            appendValue(target, ::toupper(convert<char>(*readRowIt)));
+        }
+    }
+}
+
+/**
+ * Generates the gene DNA and AA sequence based on a clonotyping result
+ */
+template<typename TMatch, typename TReferences>
+String<char> generateExonSeq(TMatch const & vMatch, TMatch const & jMatch, unsigned cdr3Begin, unsigned cdr3End, TReferences const & references)
+{
+    typedef typename TMatch::TAlign               TAlign;
+    typedef typename Row<TAlign>::Type            TRow;
+    typedef typename Iterator<TRow const, Rooted>::Type TRowIt;
+    typedef typename Source<TRow const>::Type     TSequence;
+
+    TRow const & vReadRow = row(vMatch.align,0);
+    TRow const & vSegRow  = row(vMatch.align,1);
+    TRow const & jReadRow = row(jMatch.align,0);
+    TRow const & jSegRow  = row(jMatch.align,1);
+
+    // Prepare target data structure
+    String<char> exon;
+    reserve(exon, length(row(vMatch.align, 0)) + length(row(jMatch.align, 0)) + cdr3End - cdr3Begin);
+
+    // Sometimes it happens due to erroneous database annotations that the
+    // reference is not in-frame. This fallback ensures that the output exon
+    // sequences are in-frame, but potentially incomplete.
+    size_t vSkip = references.leftMeta[vMatch.db].motifPos % 3;
+
+    // Identify first V segment base in read
+    size_t vBegin = toSourcePosition(vSegRow, toViewPosition(vReadRow, 0));
+
+    // Copy the non-covered V gene segment part from the reference
+    if (vBegin > vSkip)
+    {
+        resize(exon, vBegin - vSkip);
+        String<Dna> const & vSeg = references.leftSegs[vMatch.db];
+        std::copy(begin(vSeg) + vSkip, begin(vSeg) + vBegin, begin(exon));
+        std::transform(begin(exon), end(exon), begin(exon), ::tolower);
+    }
+
+    // Append covered V gene segment
+    vSkip = vSkip > vBegin ? vSkip - vBegin : 0;
+    appendGeneSegment(exon, vMatch.align, begin(vReadRow), iter(vReadRow, toViewPosition(vReadRow, cdr3Begin)), vSkip);
+
+    // Append covered CDR3 region
+    TSequence & readSeq = source(vReadRow);
+    for (size_t i=cdr3Begin; i < cdr3End; ++i)
+        appendValue(exon, ::toupper(convert<char>(readSeq[i])));
+
+    // Append covered J gene segment
+    appendGeneSegment(exon, jMatch.align, iter(jReadRow, toViewPosition(jReadRow, cdr3End)), end(vReadRow));
+
+    // Identify last J segment base in read
+    size_t jEnd = toSourcePosition(jSegRow, length(jSegRow)-1);
+
+    // Copy the non-covered J gene segment part from the reference
+    String<Dna> const & jSeg = source(jSegRow);
+    size_t curlen = length(exon);
+    size_t newlen = curlen + length(jSeg) - 1 - jEnd;
+    resize(exon, newlen);
+    std::copy(begin(jSeg) + jEnd + 1, end(jSeg), begin(exon) + curlen);
+    std::transform(begin(exon) + curlen, end(exon), begin(exon) + curlen, ::tolower);
+
+    // If we aren't in-frame, we keep the nuc output consistent with the aa
+    // output by truncating the sequence
+    resize(exon, length(exon) - length(exon) % 3);
+
+    return exon;
+}
+
 #ifdef __WITHCDR3THREADS__
 std::mutex MUTEX_processReads;
 std::mutex PCR_ERR_STAT_MUTEX;
@@ -1977,7 +2071,7 @@ String<AnalysisResult> analyseReads(
         //TODO replace 'X' by '*'
 
         for (Iterator<String<AminoAcid>, Rooted>::Type it = begin(aaCdr3); !atEnd(it); goNext(it))
-            if (*it == convert<AminoAcid>('X')) {
+            if (*it == convert<AminoAcid>('*')) {
                 results[i] = AnalysisResult(NONSENSE_IN_CDR3);
                 nonsense = true;
                 break;
@@ -1986,6 +2080,14 @@ String<AnalysisResult> analyseReads(
         if (nonsense)
             continue;
 
+
+        // ============================================================================
+        // Build the full length exon sequence if fasta output was requested
+        // ============================================================================
+
+        String<char> exonSeq;
+        if (global.outFiles._nucFaOutStream != NULL || global.outFiles._aaFaOutStream != NULL)
+            exonSeq = generateExonSeq(leftMatches[i][0], rightMatches[i][0], cdrBegin, cdrEnd, global.references);
 
         // ============================================================================
         // We store the length and #errors of the alignments for the right /
@@ -2080,7 +2182,7 @@ String<AnalysisResult> analyseReads(
         String<double> cdrAvgQualities;
         for (unsigned x = cdrBegin; x < cdrEnd; ++x)
             appendValue(cdrAvgQualities, getVDJAvgQuals(queryData)[i][x]);
-        AnalysisResult cr(c, CharString(fullOut.str()), cdrAvgQualities);
+        AnalysisResult cr(c, CharString(fullOut.str()), cdrAvgQualities, exonSeq);
 
         results[i] = cr;
 
@@ -2230,6 +2332,138 @@ void splitAnalysisResults(
     }
 }
 
+template <typename TClone, typename TReference>
+CharString genFastaId(TClone const & clone, TReference const & references, std::vector<CharString> const & ids, bool translateCDR3 = false)
+{
+    String<char> faId = ">";
+    _appendGeneList(faId, clone.VIds, references.leftMeta, false);
+    appendValue(faId, ':');
+    String<AminoAcid> aaCDR3Seq;
+    if (translateCDR3)
+    {
+        translate(aaCDR3Seq, clone.cdrSeq);
+        append(faId, aaCDR3Seq);
+    }
+    else
+        append(faId, clone.cdrSeq);
+    appendValue(faId, ':');
+    _appendGeneList(faId, clone.JIds, references.rightMeta, false);
+    appendValue(faId, ':');
+    append(faId, std::to_string(ids.size()));
+    appendValue(faId, ':');
+    std::vector<CharString>::const_iterator idIt = ids.begin();
+    append(faId, *idIt);
+    for (++idIt; idIt != ids.end(); ++idIt)
+    {
+        appendValue(faId, ';');
+        append(faId, *idIt);
+    }
+    return faId;
+}
+
+typedef std::map<CharString, std::pair<AnalysisResult, std::vector<CharString> > > TExonMap;
+
+void writeExonMapSorted(std::ostream * streamPtr, TExonMap const & exonMap, CdrReferences const & references, bool translateCDR3 = false)
+{
+    // Generate a vector of iterators
+    std::vector<TExonMap::const_iterator> sorted;
+    resize(sorted, exonMap.size(), exonMap.begin());
+    for (size_t i = 1; i < sorted.size(); ++i)
+    {
+        sorted[i] = sorted[i-1];
+        sorted[i]++;
+    }
+
+    // Sort the iterators descending by exon abundance
+    std::sort(sorted.begin(), sorted.end(), [](TExonMap::const_iterator a, TExonMap::const_iterator b)
+            {
+            return a->second.second.size() > b->second.second.size();
+            });
+
+    // Write the records
+    for (auto const & exonMapPtr : sorted)
+    {
+        AnalysisResult const & ar = exonMapPtr->second.first;
+        std::vector<CharString> const & ids = exonMapPtr->second.second;
+        CharString const & exonSeq = exonMapPtr->first;
+
+        *streamPtr
+            << genFastaId(ar.clone, references, ids, translateCDR3) << '\n'
+            << exonSeq << '\n';
+    }
+}
+
+template <typename TSequencingSpec>
+void writeFastaFiles(
+        CdrGlobalData<TSequencingSpec> & global,
+        String<AnalysisResult> const & results,
+        std::list<FastqMultiRecord<TSequencingSpec> > const & recList
+        )
+{
+    TExonMap exonMap;
+
+    // Build the nucleotide based exon sequence map
+    if (global.outFiles._nucFaOutStream != nullptr || global.outFiles._aaFaOutStream != nullptr)
+    {
+        auto recIt = recList.begin();
+        for (AnalysisResult const & ar : results)
+        {
+            if (! ar.reject)
+            {
+                TExonMap::iterator exonMapIt = exonMap.find(ar.exonSeq);
+                std::vector<CharString> idVec;
+                if (exonMapIt == exonMap.end())
+                {
+                    exonMapIt = exonMap.insert(std::make_pair(ar.exonSeq, std::make_pair(ar, idVec))).first;
+                }
+                exonMapIt->second.second.insert(
+                        exonMapIt->second.second.end(),
+                        recIt->ids.begin(),
+                        recIt->ids.end()
+                        );
+            }
+            ++recIt;
+        }
+    }
+
+    // Write exon nucleotide FASTA file
+    if (global.outFiles._nucFaOutStream != nullptr)
+    {
+        std::cerr << "      Full length exons (nuc)\n";
+        writeExonMapSorted(global.outFiles._nucFaOutStream, exonMap, global.references);
+    }
+
+    // Build the amino acid based exon sequence map
+    if (global.outFiles._aaFaOutStream != nullptr)
+    {
+        TExonMap aaExonMap;
+        for (auto const & exonMapRec : exonMap)
+        {
+            AnalysisResult const & ar = exonMapRec.second.first;
+            std::vector<CharString> const & ids = exonMapRec.second.second;
+            CharString const & nucSeq = exonMapRec.first;
+            CharString aaSeq;
+            translateCase(aaSeq, nucSeq);
+
+            TExonMap::iterator aaExonMapIt = aaExonMap.find(aaSeq);
+            std::vector<CharString> idVec;
+            if (aaExonMapIt == aaExonMap.end())
+            {
+                aaExonMapIt = aaExonMap.insert(std::make_pair(aaSeq, std::make_pair(ar, idVec))).first;
+            }
+            aaExonMapIt->second.second.insert(
+                    aaExonMapIt->second.second.end(),
+                    ids.begin(),
+                    ids.end()
+                    );
+        }
+
+        // Write exon amino acid FASTA file
+        std::cerr << "      Full length exons (aa)\n";
+        writeExonMapSorted(global.outFiles._aaFaOutStream, aaExonMap, global.references, true);
+    }
+}
+
 template <typename TSequencingSpec>
 void writeRDTFile(
         CdrGlobalData<TSequencingSpec> & global,
@@ -2348,12 +2582,10 @@ int runAnalysis(CdrGlobalData<TSequencingSpec> & global,
 
     CdrOptions const & options = global.options;
 
-    // ============================================================================
-    // First pass over FASTQ input to determine read count and max length
-    // ============================================================================
-
     initOutFileStream(options.rlogPath, __rejectLog);
     initOutFileStream(options.fullOut, global.outFiles._fullOutStream);
+    initOutFileStream(options.nucFaOut, global.outFiles._nucFaOutStream);
+    initOutFileStream(options.aaFaOut, global.outFiles._aaFaOutStream);
 
     // ============================================================================
     // Write the CSV headers
@@ -2393,8 +2625,19 @@ int runAnalysis(CdrGlobalData<TSequencingSpec> & global,
     // Write detailed per read output file if requested
     // ============================================================================
 
+    std::cerr << "===== Writing pre standalone error correction output files\n";
+
     if (global.outFiles._fullOutStream != NULL)
+    {
+        std::cerr << "      Detailed, per record output file\n";
         writeRDTFile(global, results, collection.multiRecords);
+    }
+
+    // ============================================================================
+    // Write full exon sequence fasta files if requested
+    // ============================================================================
+
+    writeFastaFiles(global, results, collection.multiRecords);
 
     // ============================================================================
     // Write reject information if requested
@@ -2439,9 +2682,10 @@ int runAnalysis(CdrGlobalData<TSequencingSpec> & global,
     // Write the output to the specified output files
     // ============================================================================
 
-    if (options.aminoOut != "") {
 
-        std::map<Clone<AminoAcid>, ClusterResult> aaCloneStore;
+    std::map<Clone<AminoAcid>, ClusterResult> aaCloneStore;
+
+    if (options.aminoOut != "") {
         _translateClones(aaCloneStore, nucCloneStore);
 
         // Re-run the V/J ambiguity handling, since more clonotypes share the same
@@ -2450,15 +2694,28 @@ int runAnalysis(CdrGlobalData<TSequencingSpec> & global,
             std::cerr << "===== Resolving V- and J-segment ambiguity (aminoacid-based)\n";
             resolveSegmentAmbiguity(aaCloneStore);
         }
+    }
+
+    if (options.aminoOut != "" || options.nucOut != "")
+        std::cerr << "===== Writing post standalone error correction output files\n";
+
+    if (options.nucOut != "") {
+        std::cerr << "      Writing clonotype count file (nuc)\n";
+        _writeClonotypeCounts(nucCloneStore, global);
+    }
+
+    if (options.aminoOut != "") {
+        std::cerr << "      Writing clonotype count file (aa)\n";
         _writeClonotypeCounts(aaCloneStore, global);
     }
 
-    _writeClonotypeCounts(nucCloneStore, global);
 
     nucCloneStore.clear();
 
     closeOfStream(__rejectLog);
     closeOfStream(global.outFiles._fullOutStream);
+    closeOfStream(global.outFiles._nucFaOutStream);
+    closeOfStream(global.outFiles._aaFaOutStream);
 
     if (options.sortOutputFiles)
     {

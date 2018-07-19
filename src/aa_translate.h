@@ -22,6 +22,8 @@
 #ifndef SANDBOX_LKUCHENB_APPS_CDR3FINDER_AA_TRANSLATE_
 #define SANDBOX_LKUCHENB_APPS_CDR3FINDER_AA_TRANSLATE_
 
+#include <cctype>
+
 // ============================================================================
 // Forwards
 // ============================================================================
@@ -36,34 +38,34 @@
  */
 static const AminoAcid _geneticCode[5][5][5] = {
     {
-        {'K','N','K','N','X'},
-        {'T','T','T','T','X'},
-        {'R','S','R','S','X'},
-        {'I','I','M','I','X'},
-        {'X','X','X','X','X'}
+        {'K','N','K','N','*'},
+        {'T','T','T','T','*'},
+        {'R','S','R','S','*'},
+        {'I','I','M','I','*'},
+        {'*','*','*','*','*'}
     },
     {
-        {'Q','H','Q','H','X'},
-        {'P','P','P','P','X'},
-        {'R','R','R','R','X'},
-        {'L','L','L','L','X'},
-        {'X','X','X','X','X'}
-    },
-    {
-
-        {'E','D','E','D','X'},
-        {'A','A','A','A','X'},
-        {'G','G','G','G','X'},
-        {'V','V','V','V','X'},
-        {'X','X','X','X','X'}
+        {'Q','H','Q','H','*'},
+        {'P','P','P','P','*'},
+        {'R','R','R','R','*'},
+        {'L','L','L','L','*'},
+        {'*','*','*','*','*'}
     },
     {
 
-        {'X','Y','X','Y','X'},
-        {'S','S','S','S','X'},
-        {'X','C','W','C','X'},
-        {'L','F','L','F','X'},
-        {'X','X','X','X','X'}
+        {'E','D','E','D','*'},
+        {'A','A','A','A','*'},
+        {'G','G','G','G','*'},
+        {'V','V','V','V','*'},
+        {'*','*','*','*','*'}
+    },
+    {
+
+        {'*','Y','*','Y','*'},
+        {'S','S','S','S','*'},
+        {'*','C','W','C','*'},
+        {'L','F','L','F','*'},
+        {'*','*','*','*','*'}
     }
 };
 
@@ -78,7 +80,7 @@ static const AminoAcid _geneticCode[5][5][5] = {
 /*
  * Translates a DNA or RNA String to an amino acid string. The translation
  * is performed on the first reading frame, trailing nucleotides are ignored.
- * Nonsense-codons as well as triplets containing 'N's are translated with 'X'.
+ * Nonsense-codons as well as triplets containing 'N's are translated with '*'.
  */
 template<typename TSpecIn, typename TSource>
 void translate(String<AminoAcid, TSpecIn>& target, const TSource& nucSeq, unsigned short rFrame = 0) {
@@ -91,6 +93,38 @@ void translate(String<AminoAcid, TSpecIn>& target, const TSource& nucSeq, unsign
     nucLength -= (nucLength % 3);
     for (unsigned triplet = 0; triplet< nucLength-2; triplet+=3)
         appendValue(target, _geneticCode[(unsigned short)nucSeq[triplet]][(unsigned short)nucSeq[triplet+1]][(unsigned short)nucSeq[triplet+2]]);
+}
+
+/*
+ * Translates a DNA or RNA String to an amino acid string. The translation
+ * is performed on the first reading frame, trailing nucleotides are ignored.
+ * Nonsense-codons as well as triplets containing 'N's are translated with '*'.
+ * This version takes into account the case of the input string, i.e. it works
+ * on char strings and outputs a lower case amino acid if the codon contained
+ * at least one lower case base.
+ */
+template<typename TSpecOut, typename TSpecIn>
+void translateCase(String<char, TSpecOut> & target, const String<char, TSpecIn> & nucSeq, unsigned short rFrame = 0) {
+    clear(target);
+    rFrame = rFrame % 3;
+    if (length(nucSeq) < 3)
+        return;
+    reserve(target,length(nucSeq)/3);
+    unsigned nucLength = length(nucSeq);
+    nucLength -= (nucLength % 3);
+    for (unsigned triplet = 0; triplet< nucLength-2; triplet+=3)
+    {
+        AminoAcid aa = _geneticCode[(unsigned short)convert<Dna5>(nucSeq[triplet])][(unsigned short)convert<Dna5>(nucSeq[triplet+1])][(unsigned short)convert<Dna5>(nucSeq[triplet+2])];
+        bool lower = false;
+        for (unsigned short i = 0; i < 3; ++i)
+            if (std::islower(nucSeq[triplet+i]))
+            {
+                lower = true;
+                break;
+            }
+        char c = convert<char>(aa);
+        appendValue(target, lower ? std::tolower(c) : std::toupper(c));
+    }
 }
 
 #endif  // #ifndef SANDBOX_LKUCHENB_APPS_CDR3FINDER_AA_TRANSLATE_

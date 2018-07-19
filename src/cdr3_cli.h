@@ -107,6 +107,8 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     addOption(parser, ArgParseOption("oa", "out-amino", "Output file path for translated clonotypes.", (ArgParseArgument::STRING)));
     addOption(parser, ArgParseOption("on", "out-nuc", "Output file path for untranslated clonotypes.", (ArgParseArgument::STRING)));
     addOption(parser, ArgParseOption("o", "out", "Output file path for verbose output per analyzed read.", (ArgParseArgument::STRING)));
+    addOption(parser, ArgParseOption("nfa", "nuc-exon-fasta", "Output file path for FASTA file with full length exon nucleotide sequences", (ArgParseArgument::STRING)));
+    addOption(parser, ArgParseOption("afa", "aa-exon-fasta", "Output file path for FASTA file with translated full length exon sequences", (ArgParseArgument::STRING)));
     addOption(parser, ArgParseOption("s", "seq", "Include read sequence in output (-o) file."));
     addOption(parser, ArgParseOption("so", "sort-output", "Sort the -o and -rlg output files"));
 
@@ -321,6 +323,10 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
     if (options.nucOut=="-") options.nucOut = options.outFileBaseName + ".nct";
     getOptionValue(options.fullOut, parser, "o");
     if (options.fullOut=="-") options.fullOut = options.outFileBaseName + ".rdt";
+    getOptionValue(options.nucFaOut, parser, "nfa");
+    if (options.nucFaOut=="-") options.nucFaOut= options.outFileBaseName + ".nuc.fa";
+    getOptionValue(options.aaFaOut, parser, "afa");
+    if (options.aaFaOut=="-") options.aaFaOut = options.outFileBaseName + ".aa.fa";
     getOptionValue(options.rlogPath, parser, "rlog");
     if (options.rlogPath=="-") options.rlogPath = options.outFileBaseName + ".rlg";
 

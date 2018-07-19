@@ -46,6 +46,8 @@ struct CdrOptions {
     CharString aminoOutBc;
     CharString nucOutBc;
     CharString fullOut;
+    CharString nucFaOut;
+    CharString aaFaOut;
     std::string outFileBaseName;
     unsigned vCrop;
     unsigned jCrop;

@@ -95,6 +95,8 @@ struct CdrReferences {
 
 struct CdrOutputFiles {
     std::ofstream*      _fullOutStream;
+    std::ofstream*      _nucFaOutStream;
+    std::ofstream*      _aaFaOutStream;
     ConditionalLog      clusterCLog;
     Log                 clusterEvalLog;
 };

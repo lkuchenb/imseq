@@ -520,10 +520,10 @@ int extendToOverlapAlignment(
     setClippedEndPosition(row(align, 0), clippedViewEndPos);
     setClippedEndPosition(row(align, 1), clippedViewEndPos);
 
-    // Clip leading segment gaps
-    TRowPos clippedViewBeginPos = toViewPosition(row(align, 1), 0);
-    setClippedBeginPosition(row(align, 0), clippedViewBeginPos);
-    setClippedBeginPosition(row(align, 1), clippedViewBeginPos);
+    // Clip leading gaps
+    size_t lGaps = std::max(countLeadingGaps(row(align, 0)), countLeadingGaps(row(align, 1)));
+    setClippedBeginPosition(row(align, 0), lGaps);
+    setClippedBeginPosition(row(align, 1), lGaps);
 
     return s;
 }
