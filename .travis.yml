@@ -1,20 +1,13 @@
-dist: trusty
-sudo: false
-
-language: cpp
-
-os: linux
-compiler: gcc-4.9
-addons:
-  apt:
-    sources: ['ubuntu-toolchain-r-test']
-    packages: ['g++-4.9', 'cmake', 'cmake-data', 'zlib1g-dev', 'libbz2-dev', 'libboost-dev', 'python', 'python-nose', 'python-jinja2', 'python-pip']
-install: export CXX="g++-4.9" CC="gcc-4.9"
-
+os: osx
+osx_image: xcode9.4
+language: c++
 script:
+  - brew cask uninstall oclint
+  - brew install gcc@8
+  - brew ls --versions
   - mkdir build
   - cd build
   - cmake --version
-  - cmake -DCMAKE_BUILD_TYPE=Release ..
+  - cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=/usr/local/bin/g++-8 ..
   - make VERBOSE=1
   - ./imseq --version
