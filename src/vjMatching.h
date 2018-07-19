@@ -419,6 +419,53 @@ void findCandidateCoreSegments(
     }
 }
 
+template <typename TRow>
+void _refineTerminalGaps(TRow & rowA, TRow & rowB)
+{
+    typedef typename Position<TRow>::Type TRowPos;
+
+    // Left
+    TRowPos vPos    = 1 + toViewPosition(rowB, length(source(rowB)) - 1);
+    TRowPos maxGaps = length(rowB) - vPos;
+    unsigned gaps = 0;
+    for (; vPos > 0 && isGap(rowA, vPos - 1); --vPos)
+        ++gaps;
+    gaps = gaps > maxGaps ? maxGaps : gaps;
+    if (gaps>0)
+        removeGaps(rowA, vPos, gaps);
+
+    // Right
+    vPos = toViewPosition(rowA, 0);
+    maxGaps = vPos;
+    gaps = 0;
+    for (; vPos < length(rowB) && isGap(rowB, vPos); ++vPos)
+        ++gaps;
+    gaps = gaps > maxGaps ? maxGaps : gaps;
+    if (gaps>0)
+    {
+        removeGaps(rowB, toViewPosition(rowA, 0), gaps);
+        removeGaps(rowA, 0, gaps);
+    }
+}
+
+/**
+ * Remove score indifferent gaps at the end of segment - read alignments
+ *
+ * This function takes care of the following type of scenario:
+ *
+ * *************-********       *********************
+ * |||||||||||||           ==>  |||||||||||||
+ * **************--------       **************-------
+ *
+ * which is score indifferent due to free end gaps.
+ */
+template <typename TAlign>
+void refineTerminalGaps(TAlign & align)
+{
+    _refineTerminalGaps(row(align, 0), row(align, 1));
+    _refineTerminalGaps(row(align, 1), row(align, 0));
+}
+
 template <typename TAlign, typename TReadSequence>
 int extendToOverlapAlignment(
         TAlign & align,                         // [OUT] The target alignment object
@@ -436,7 +483,7 @@ int extendToOverlapAlignment(
     typedef typename Source<TRow>::Type                         TSource;
     typedef typename Position<TSource>::Type                    TPos;
     typedef Segment<String<Dna5> const, InfixSegment>           TSegment;
-    
+
     // Prepare the target align object
     resize(rows(align), 2);
 
@@ -463,6 +510,10 @@ int extendToOverlapAlignment(
 
     // Compute the overlap alignment - we allow extra read sequence here
     int s = globalAlignment(align, SimpleScore(1,-1,-1), AlignConfig<true,true,false,true>(), diag - maxErrors, diag + maxErrors + 1);
+
+    // Remove trailing gaps in the read sequence and pull in mismatches
+    // instead. The score is equivalent, but we don't expect gaps here.
+    refineTerminalGaps(align);
 
     // Clip after segment end
     TRowPos clippedViewEndPos = toViewPosition(row(align, 1), (length(segSegment)-1)) + 1;
@@ -494,7 +545,7 @@ int extendToOverlapAlignment(
     typedef typename Source<TRow>::Type                         TSource;
     typedef typename Position<TSource>::Type                    TPos;
     typedef Segment<String<Dna5> const, InfixSegment>           TSegment;
-    
+
     // Prepare the target align object
     resize(rows(align), 2);
 
@@ -517,6 +568,10 @@ int extendToOverlapAlignment(
 
     // Compute the overlap alignment - we allow extra read sequence here
     int s = globalAlignment(align, SimpleScore(1,-1,-1), AlignConfig<true,false,true,true>(), diag - maxErrors, diag + maxErrors + 1);
+
+    // Remove trailing gaps in the read sequence and pull in mismatches
+    // instead. The score is equivalent, but we don't expect gaps here.
+    refineTerminalGaps(align);
 
     // Clip after read or segment ends
     TRowPos readViewEndPos = toViewPosition(row(align, 0), length(readSegment) - 1) + 1;

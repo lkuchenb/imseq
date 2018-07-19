@@ -1868,7 +1868,7 @@ String<AnalysisResult> analyseReads(
     {
         for (unsigned x = 0; x < length(leftMatches); ++x)
         {
-            std::cerr << "\n\n========= V ALIGNMENTS FOR READ " << x << " ===========\n\n";
+            std::cerr << "\n\n========= " << length(leftMatches[x]) << " V ALIGNMENTS FOR READ " << x << " ===========\n\n";
             for (auto y : leftMatches[x])
             {
                 int overlapLength = length(row(y.align,1));
@@ -1888,7 +1888,7 @@ String<AnalysisResult> analyseReads(
     {
         for (unsigned x = 0; x < length(rightMatches); ++x)
         {
-            std::cerr << "\n\n========= J ALIGNMENTS FOR READ " << x << " ===========\n\n";
+            std::cerr << "\n\n========= " << length(rightMatches[x]) << " J ALIGNMENTS FOR READ " << x << " ===========\n\n";
             for (auto y : rightMatches[x])
             {
                 std::cerr << getDescriptor(global.references.rightMeta[y.db]) << " (score=" << y.score << ")\n" << y.align;
