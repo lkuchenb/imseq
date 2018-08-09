@@ -27,7 +27,7 @@
 #define DO_QUOTE(X)    #X
 #define QUOTE(X)       DO_QUOTE(X)
 
-#define IMSEQ_FALLBACK_VERSION "1.1.0-custom"
+#define IMSEQ_FALLBACK_VERSION "0.0.0"
 
 struct IMSEQ_VERSION {
     static const std::string STRING;

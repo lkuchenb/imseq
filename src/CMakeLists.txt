@@ -2,6 +2,10 @@ cmake_minimum_required (VERSION 3.0.0)
 project (imseq)
 message ( STATUS "Configuring IMSEQ" )
 
+SET(CPACK_PACKAGE_VERSION_MAJOR "1")
+SET(CPACK_PACKAGE_VERSION_MINOR "2")
+SET(CPACK_PACKAGE_VERSION_PATCH "0")
+add_definitions(-DIMSEQ_VERSION_STRING=${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH})
 
 # ----------------------------------------------------------------------------
 # Dependencies
@@ -41,8 +45,23 @@ if ("${CMAKE_IMSEQ_LINUX_STATIC}" EQUAL "true")
     SET(CMAKE_EXE_LINKER_FLAGS "-static -Wl,--whole-archive -lpthread -Wl,--no-whole-archive")
 endif()
 
+# Static / dynamic linking
+set (LINK_TYPE "-dynamic")
+if ( STATIC_BUILD )
+    set (LINK_TYPE "-static")
+    if(UNIX AND NOT APPLE) # On Linux, build static binaries
+        message ( STATUS "Configuring Linux static build" )
+        SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+        SET(CMAKE_EXE_LINKER_FLAGS "-static -Wl,--whole-archive -lpthread -Wl,--no-whole-archive")
+elseif (UNIX AND APPLE AND CMAKE_COMPILER_IS_GNUCXX) # On MacOS link only the standard library statically if GCC is used
+        set (LINK_TYPE "")
+        message ( STATUS "Configuring Mac build with static libstdc++" )
+        SET(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
+    endif()
+endif()
+
 # IMSEQ executable
-add_executable (imseq 
+add_executable (imseq
 	aa_translate.h
 	barcode_correction.h
 	cdr3_cli.h
@@ -90,8 +109,31 @@ add_executable (imseq
 # Add dependencies found by find_package (SeqAn).
 target_link_libraries (imseq ${SEQAN_LIBRARIES})
 
-install (TARGETS imseq
-         DESTINATION bin)
+
+# Installation
+if ( PKG_BUILD )
+    SET ( BINDIR "." )
+    SET ( EXTRADIR "." )
+    SET ( DIRSUFFIX "" )
+else()
+    SET ( BINDIR "bin" )
+    SET ( EXTRADIR "share/imseq" )
+    SET ( DIRSUFFIX "/" )
+endif()
+install (TARGETS imseq RUNTIME DESTINATION "${BINDIR}")
+install (FILES "../LICENSE" DESTINATION "${EXTRADIR}")
+install (DIRECTORY "../pkg/" DESTINATION "${EXTRADIR}")
+install (DIRECTORY "../references${DIRSUFFIX}" DESTINATION "${EXTRADIR}")
 
 # Add CXX flags found by find_package (SeqAn).
 set (CMAKE_CXX_FLAGS "-Wno-address ${CMAKE_CXX_FLAGS}")
+
+# Packaging
+if(UNIX AND NOT APPLE)
+    SET(CPACK_SYSTEM_NAME "linux64${LINK_TYPE}")
+elseif (UNIX AND APPLE)
+    SET(CPACK_SYSTEM_NAME "mac64${LINK_TYPE}")
+endif()
+SET(CPACK_GENERATOR "TGZ")
+message(STATUS "Adding file ${CMAKE_CURRENT_SOURCE_DIR}/../pkg/README")
+include ( CPack )

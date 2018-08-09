@@ -21,8 +21,8 @@
 
 #include "version_number.h"
 
-#ifdef BUILD_NUMBER
-const std::string IMSEQ_VERSION::STRING = QUOTE(BUILD_NUMBER) == "" || QUOTE(BUILD_NUMBER) == "1" ? IMSEQ_FALLBACK_VERSION : QUOTE(BUILD_NUMBER);
+#ifdef IMSEQ_VERSION_STRING
+const std::string IMSEQ_VERSION::STRING = QUOTE(IMSEQ_VERSION_STRING);
 #else
 const std::string IMSEQ_VERSION::STRING = IMSEQ_FALLBACK_VERSION;
 #endif

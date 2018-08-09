@@ -1,4 +1,5 @@
 cmake_minimum_required (VERSION 3.0.0)
+project (imseq)
 
 # Generate Release builds by default
 if ( NOT CMAKE_BUILD_TYPE )

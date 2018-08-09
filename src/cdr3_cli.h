@@ -76,7 +76,7 @@ inline void parseCommandLine(CdrOptions & options, String<std::string> & inFileP
 
     ArgumentParser parser("imseq");
     setVersion(parser, IMSEQ_VERSION::STRING);
-    setDate(parser, "March 2016");
+    setDate(parser, "August 2018");
 
     addUsageLine(parser, "-ref <segment reference> [\\fIOPTIONS\\fP] <VDJ reads>");
     addUsageLine(parser, "-ref <segment reference> [\\fIOPTIONS\\fP] <V reads> <VDJ reads>");

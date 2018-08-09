@@ -3,13 +3,35 @@ sudo: false
 
 language: cpp
 
-os: linux
-compiler: gcc-4.9
-addons:
-  apt:
-    sources: ['ubuntu-toolchain-r-test']
-    packages: ['g++-4.9', 'cmake', 'cmake-data', 'zlib1g-dev', 'libbz2-dev', 'libboost-dev', 'python', 'python-nose', 'python-jinja2', 'python-pip']
-install: export CXX="g++-4.9" CC="gcc-4.9"
+matrix:
+  include:
+  - os: linux
+    dist: trusty
+    sudo: false
+    compiler: gcc-7
+    addons:
+      apt:
+        sources:
+        - ubuntu-toolchain-r-test
+        packages:
+        - g++-7
+        - cmake
+        - zlib1g-dev
+        - libbz2-dev
+    before_install:
+    - "python3 --version || :"
+    - "python --version || :"
+    install: export CXX="g++-7"
+    env:
+    - LINK_TOOL="ldd"
+    - DEPLOY_PATTERN="imseq-*-linux64-{static,dynamic}.tar.gz"
+  - os: osx
+    osx_image: xcode9.2
+    compiler: clang
+    env:
+    - LINK_TOOL="otool -L"
+    - DEPLOY_PATTERN="imseq-*-mac64.tar.gz"
+
 
 script:
   - mkdir build
@@ -17,4 +39,22 @@ script:
   - cmake --version
   - cmake -DCMAKE_BUILD_TYPE=Release ..
   - make VERBOSE=1
+  - "$LINK_TOOL imseq || :"
   - ./imseq --version
+  - cmake -DPKG_BUILD=1 -DSTATIC_BUILD=0 .
+  - make VERBOSE=1 package
+  - "$LINK_TOOL imseq || :"
+  - cmake -DPKG_BUILD=1 -DSTATIC_BUILD=1 .
+  - make VERBOSE=1 package
+  - "$LINK_TOOL imseq || :"
+  - 'for f in *.tar.gz; do echo ""; echo "==[$f]=="; tar tf "$f"; done'
+
+deploy:
+  skip_cleanup: true
+  provider: releases
+  api_key:
+    secure: O6xXhr6eWHdm53CbV4TwiFWCPIdxn9+8G49ABSp0SFmwLpwZIQcm+wepqtCqaQSc1Guic4dwmDUQOuRZqtuV5erWXDuArossa9ZgUlD+IQ8rtXWt5dBLbrwftT6+rPqf+rF41MNeo9fEtVRT/T1BUAgxOTqZ3tG5GtIUTajLhmmNHpOPq+9wR4V064DgI3hrPhvgqwvAKfyCMOBxgC6guRfeRfDTFDzEQIlW2zEeC7qxl76FVeJ4YYG1M7HhHjZW1cc06iwGOZ378vmBLpxPF8X5AFNax2ZDEs9fmBXipf6np/+WVKtzOyRe8XjHYnGqs6F9cpd9uI1zJrJsRuWBKUycs4HebABGnnWfO4pRzq3W/PTEdcoZwBq2zV68MiPHTOFnf+L4YyN6o/ErswOBfpcvCHNCqXioSyDT83mxqdVzW+NeP3u3olxNi43T+4eoQLz9JEyk5Ma2jOM+9GvkOUsFoJDHe9se3vHO3QgFMnhqdmcwG9eyWOe4/lHaeObBzeDpBBRQ6okodwV7xA2A1jV9sNdGD+6W2vbH15EJVLwg3Pn8AStpp3WuvmyqiB/RDsu5p5YmVQ1ZSB7vo2P6QAcuqVFrouwfqDPrDdcwLiUZuz7xpAm9FvHAKKv4oVME0IVpkjza32uDElOYHvO6n70dxzRUsjHja4EMqLqBMcA=
+  file_glob: True
+  file: $DEPLOY_PATTERN
+  on:
+    tags: True
