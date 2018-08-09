@@ -48,16 +48,18 @@ endif()
 # Static / dynamic linking
 set (LINK_TYPE "-dynamic")
 if ( STATIC_BUILD )
-    set (LINK_TYPE "-static")
-    if(UNIX AND NOT APPLE) # On Linux, build static binaries
-        message ( STATUS "Configuring Linux static build" )
-        SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
-        SET(CMAKE_EXE_LINKER_FLAGS "-static -Wl,--whole-archive -lpthread -Wl,--no-whole-archive")
-elseif (UNIX AND APPLE AND CMAKE_COMPILER_IS_GNUCXX) # On MacOS link only the standard library statically if GCC is used
-        set (LINK_TYPE "")
-        message ( STATUS "Configuring Mac build with static libstdc++" )
-        SET(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
-    endif()
+  set (LINK_TYPE "-static")
+  if(UNIX AND NOT APPLE) # On Linux, build static binaries
+    message ( STATUS "Configuring Linux static build" )
+    SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+    SET(CMAKE_EXE_LINKER_FLAGS "-static -Wl,--whole-archive -lpthread -Wl,--no-whole-archive")
+  elseif (UNIX AND APPLE AND CMAKE_COMPILER_IS_GNUCXX) # On MacOS link only the standard library statically if GCC is used
+    set (LINK_TYPE "")
+    message ( STATUS "Configuring Mac build with static libstdc++" )
+    SET(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
+  elseif (UNIX AND APPLE)
+    set (LINK_TYPE "")
+  endif()
 endif()
 
 # IMSEQ executable
